@@ -1,7 +1,7 @@
 use crate::value::TypeId;
-use crate::{Error, Flags, ParameterId, ParameterValue};
+use crate::{Error, ParameterFlags, ParameterId, ParameterValue};
 use byteorder::{ByteOrder, LittleEndian};
-use static_assertions::{assert_eq_size, const_assert_eq};
+use static_assertions::assert_eq_size;
 
 assert_eq_size!(u32, ParameterId);
 assert_eq_size!(u8, TypeId);
@@ -67,9 +67,9 @@ impl<T: AsRef<[u8]>> Frame<T> {
     }
 
     #[inline]
-    pub fn flags(&self) -> Flags {
+    pub fn flags(&self) -> ParameterFlags {
         let data = self.buffer.as_ref();
-        Flags::from(LittleEndian::read_u32(&data[field::FLAGS]))
+        ParameterFlags::from(LittleEndian::read_u32(&data[field::FLAGS]))
     }
 
     #[inline]
@@ -83,5 +83,46 @@ impl<T: AsRef<[u8]>> Frame<T> {
             4 => ParameterValue::F32(LittleEndian::read_f32(&data[field::VALUE])),
             _ => ParameterValue::None,
         }
+    }
+}
+
+impl<T: AsRef<[u8]> + AsMut<[u8]>> Frame<T> {
+    #[inline]
+    pub fn set_local_time_ms(&mut self, value: u64) {
+        let data = self.buffer.as_mut();
+        LittleEndian::write_u64(&mut data[field::TIME], value)
+    }
+
+    #[inline]
+    pub fn set_id(&mut self, value: ParameterId) {
+        let data = self.buffer.as_mut();
+        LittleEndian::write_u32(&mut data[field::ID], value.into())
+    }
+
+    #[inline]
+    pub fn set_flags(&mut self, value: ParameterFlags) {
+        let data = self.buffer.as_mut();
+        LittleEndian::write_u32(&mut data[field::FLAGS], value.into())
+    }
+
+    #[inline]
+    pub fn set_value(&mut self, value: ParameterValue) {
+        let data = self.buffer.as_mut();
+        data[field::VALUE_TYPE_ID] = TypeId::from(value).as_u8();
+        match value {
+            ParameterValue::None => (),
+            ParameterValue::Notification => (),
+            ParameterValue::U8(inner) => {
+                data[field::VALUE.start] = inner;
+            }
+            ParameterValue::U32(inner) => LittleEndian::write_u32(&mut data[field::VALUE], inner),
+            ParameterValue::F32(inner) => LittleEndian::write_f32(&mut data[field::VALUE], inner),
+        }
+    }
+}
+
+impl<T: AsRef<[u8]>> AsRef<[u8]> for Frame<T> {
+    fn as_ref(&self) -> &[u8] {
+        self.buffer.as_ref()
     }
 }

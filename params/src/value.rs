@@ -14,6 +14,7 @@ impl Default for Value {
     }
 }
 
+// TODO - cleanup this pattern
 // Value prefixed with u8 type ID on the wire
 #[derive(Copy, Clone, PartialEq, PartialOrd, Debug)]
 pub(crate) enum TypeId {
