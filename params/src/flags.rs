@@ -1,10 +1,19 @@
 use bitfield::bitfield;
+use static_assertions::assert_eq_size;
+
+assert_eq_size!(u32, Flags);
 
 bitfield! {
     #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Default)]
     pub struct Flags(u32);
     u32;
     pub read_only, set_read_only : 0;
+}
+
+impl Flags {
+    pub fn wire_size(&self) -> usize {
+        4
+    }
 }
 
 impl From<u32> for Flags {

@@ -21,10 +21,6 @@ impl Request {
         }
     }
 
-    pub fn len(&self) -> usize {
-        self.ids.len()
-    }
-
     pub fn op(&self) -> GetSetOp {
         self.op
     }
@@ -50,6 +46,20 @@ impl Request {
     pub fn clear(&mut self) {
         self.ids.clear();
         self.params.clear();
+    }
+
+    pub fn wire_size(&self) -> usize {
+        let payload_size = match self.op {
+            GetSetOp::ListAll => 0,
+            GetSetOp::Get => ParameterListPacket::<&[u8]>::buffer_len(
+                self.ids.iter().map(|id| id.wire_size()).sum(),
+            ),
+            GetSetOp::Set => ParameterIdListPacket::<&[u8]>::buffer_len(
+                self.params.iter().map(|p| p.wire_size()).sum(),
+            ),
+        };
+
+        GetSetFrame::<&[u8]>::buffer_len(payload_size)
     }
 
     pub fn parse<T: AsRef<[u8]> + ?Sized>(frame: &GetSetFrame<&T>) -> Result<Self, Error> {
@@ -102,5 +112,62 @@ impl Request {
                 Ok(())
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{ParameterFlags, ParameterPacket, ParameterValue};
+    use core::mem;
+
+    #[test]
+    fn wire_size() {
+        let req = Request::new(GetSetOp::ListAll);
+        assert_eq!(req.ids.len(), 0);
+        assert_eq!(req.params.len(), 0);
+        assert_eq!(req.wire_size(), GetSetFrame::<&[u8]>::header_len());
+
+        let mut req = Request::new(GetSetOp::Set);
+        assert_eq!(
+            req.push_parameter(Parameter::new_with_value(
+                ParameterId::new(0x0A),
+                ParameterFlags(0),
+                ParameterValue::I32(-1234),
+            )),
+            Ok(())
+        );
+        assert_eq!(
+            req.push_parameter(Parameter::new_with_value(
+                ParameterId::new(0x0B),
+                ParameterFlags(0),
+                ParameterValue::Bool(true),
+            )),
+            Ok(())
+        );
+        assert_eq!(req.ids.len(), 0);
+        assert_eq!(req.params.len(), 2);
+        assert_eq!(
+            req.wire_size(),
+            GetSetFrame::<&[u8]>::header_len()
+                + ParameterListPacket::<&[u8]>::header_len()
+                + ParameterPacket::<&[u8]>::header_len()
+                + mem::size_of::<i32>()
+                + ParameterPacket::<&[u8]>::header_len()
+                + mem::size_of::<u8>()
+        );
+
+        let mut req = Request::new(GetSetOp::Get);
+        assert_eq!(req.push_id(ParameterId::new(0x0A)), Ok(()));
+        assert_eq!(req.push_id(ParameterId::new(0x0B)), Ok(()));
+        assert_eq!(req.ids.len(), 2);
+        assert_eq!(req.params.len(), 0);
+        assert_eq!(
+            req.wire_size(),
+            GetSetFrame::<&[u8]>::header_len()
+                + ParameterIdListPacket::<&[u8]>::header_len()
+                + mem::size_of::<u32>()
+                + mem::size_of::<u32>()
+        );
     }
 }

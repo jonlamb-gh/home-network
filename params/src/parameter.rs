@@ -1,3 +1,4 @@
+use crate::value::TypeId;
 use crate::{Error, ParameterFlags, ParameterId, ParameterPacket, ParameterValue};
 
 #[derive(Copy, Clone, PartialEq, PartialOrd, Debug)]
@@ -47,6 +48,11 @@ impl Parameter {
         self.value
     }
 
+    pub fn wire_size(&self) -> usize {
+        let value_size = TypeId::from(self.value()).wire_size();
+        ParameterPacket::<&[u8]>::buffer_len(value_size)
+    }
+
     pub fn parse<T: AsRef<[u8]> + ?Sized>(frame: &ParameterPacket<&T>) -> Result<Self, Error> {
         frame.check_len()?;
         Ok(Parameter {
@@ -62,5 +68,24 @@ impl Parameter {
         frame.set_id(self.id);
         frame.set_flags(self.flags);
         frame.set_value(self.value);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use core::mem;
+
+    #[test]
+    fn wire_size() {
+        let p = Parameter::new_with_value(
+            ParameterId::new(0x0F),
+            ParameterFlags(0),
+            ParameterValue::I32(-1234),
+        );
+        assert_eq!(
+            p.wire_size(),
+            ParameterPacket::<&[u8]>::header_len() + mem::size_of::<i32>()
+        );
     }
 }

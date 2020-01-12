@@ -76,3 +76,34 @@ impl From<Value> for TypeId {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use core::mem;
+
+    #[test]
+    fn wire_size() {
+        assert_eq!(TypeId::from(Value::None).wire_size(), mem::size_of::<()>());
+        assert_eq!(
+            TypeId::from(Value::Notification).wire_size(),
+            mem::size_of::<()>()
+        );
+        assert_eq!(
+            TypeId::from(Value::Bool(true)).wire_size(),
+            mem::size_of::<u8>()
+        );
+        assert_eq!(
+            TypeId::from(Value::U32(123)).wire_size(),
+            mem::size_of::<u32>()
+        );
+        assert_eq!(
+            TypeId::from(Value::I32(-123)).wire_size(),
+            mem::size_of::<i32>()
+        );
+        assert_eq!(
+            TypeId::from(Value::F32(-1.234)).wire_size(),
+            mem::size_of::<f32>()
+        );
+    }
+}
