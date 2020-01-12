@@ -51,10 +51,10 @@ impl Request {
     pub fn wire_size(&self) -> usize {
         let payload_size = match self.op {
             GetSetOp::ListAll => 0,
-            GetSetOp::Get => ParameterListPacket::<&[u8]>::buffer_len(
+            GetSetOp::Get => ParameterIdListPacket::<&[u8]>::buffer_len(
                 self.ids.iter().map(|id| id.wire_size()).sum(),
             ),
-            GetSetOp::Set => ParameterIdListPacket::<&[u8]>::buffer_len(
+            GetSetOp::Set => ParameterListPacket::<&[u8]>::buffer_len(
                 self.params.iter().map(|p| p.wire_size()).sum(),
             ),
         };
@@ -119,7 +119,63 @@ impl Request {
 mod tests {
     use super::*;
     use crate::{ParameterFlags, ParameterPacket, ParameterValue};
+    use core::convert::TryInto;
     use core::mem;
+
+    static FRAME_BYTES: [u8; 139] = [
+        0xAB, 0xCD, 0xEF, 0xFF, 0x02, 7, 0, 0, 0, 0, 0, 0, 0, 0, 10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 11, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 12, 0, 0, 0, 0, 0, 0,
+        0, 2, 1, 0, 0, 0, 0, 0, 0, 0, 0, 13, 0, 0, 0, 0, 0, 0, 0, 3, 171, 0, 0, 0, 0, 0, 0, 0, 0,
+        14, 0, 0, 0, 0, 0, 0, 0, 4, 210, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 15, 0, 0, 0, 0, 0, 0, 0,
+        5, 46, 251, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 16, 0, 0, 0, 0, 0, 0, 0, 6, 182, 243, 157,
+        191,
+    ];
+
+    static PAYLOAD_BYTES: [u8; 134] = [
+        7, 0, 0, 0, 0, 0, 0, 0, 0, 10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 11, 0, 0, 0,
+        0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 12, 0, 0, 0, 0, 0, 0, 0, 2, 1, 0, 0, 0, 0, 0, 0, 0,
+        0, 13, 0, 0, 0, 0, 0, 0, 0, 3, 171, 0, 0, 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 0, 0, 0, 0, 4,
+        210, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 15, 0, 0, 0, 0, 0, 0, 0, 5, 46, 251, 255, 255, 0, 0,
+        0, 0, 0, 0, 0, 0, 16, 0, 0, 0, 0, 0, 0, 0, 6, 182, 243, 157, 191,
+    ];
+
+    static PARAMS: [Parameter; 7] = [
+        Parameter::new_with_value(
+            ParameterId::new(0x0A),
+            ParameterFlags(0),
+            ParameterValue::None,
+        ),
+        Parameter::new_with_value(
+            ParameterId::new(0x0B),
+            ParameterFlags(0),
+            ParameterValue::Notification,
+        ),
+        Parameter::new_with_value(
+            ParameterId::new(0x0C),
+            ParameterFlags(0),
+            ParameterValue::Bool(true),
+        ),
+        Parameter::new_with_value(
+            ParameterId::new(0x0D),
+            ParameterFlags(0),
+            ParameterValue::U8(0xAB),
+        ),
+        Parameter::new_with_value(
+            ParameterId::new(0x0E),
+            ParameterFlags(0),
+            ParameterValue::U32(1234),
+        ),
+        Parameter::new_with_value(
+            ParameterId::new(0x0F),
+            ParameterFlags(0),
+            ParameterValue::I32(-1234),
+        ),
+        Parameter::new_with_value(
+            ParameterId::new(0x10),
+            ParameterFlags(0),
+            ParameterValue::F32(-1.234),
+        ),
+    ];
 
     #[test]
     fn wire_size() {
@@ -174,13 +230,16 @@ mod tests {
     #[test]
     fn emit() {
         let req = Request::new(GetSetOp::ListAll);
+        assert_eq!(req.op(), GetSetOp::ListAll);
         let mut bytes = [0xFF; 64];
         let mut frame = GetSetFrame::new_unchecked(&mut bytes[..]);
         assert_eq!(req.emit(&mut frame), Ok(()));
         assert_eq!(frame.check_len(), Ok(()));
         assert_eq!(frame.check_preamble(), Ok(()));
+        assert_eq!(frame.op(), GetSetOp::ListAll);
 
         let mut req = Request::new(GetSetOp::Set);
+        assert_eq!(req.op(), GetSetOp::Set);
         let p_a = Parameter::new_with_value(
             ParameterId::new(0x0A),
             ParameterFlags(0),
@@ -199,6 +258,7 @@ mod tests {
         assert_eq!(req.emit(&mut frame), Ok(()));
         assert_eq!(frame.check_len(), Ok(()));
         assert_eq!(frame.check_preamble(), Ok(()));
+        assert_eq!(frame.op(), GetSetOp::Set);
         let packet = ParameterListPacket::new_checked(frame.payload_mut()).unwrap();
         assert_eq!(packet.check_len(), Ok(()));
         assert_eq!(packet.count(), 2);
@@ -206,6 +266,7 @@ mod tests {
         assert_eq!(packet.parameter_at(1), Ok(p_b));
 
         let mut req = Request::new(GetSetOp::Get);
+        assert_eq!(req.op(), GetSetOp::Get);
         let id_a = ParameterId::new(0x0A);
         let id_b = ParameterId::new(0x0B);
         let id_c = ParameterId::new(0x0C);
@@ -213,11 +274,33 @@ mod tests {
         assert_eq!(req.push_id(id_b), Ok(()));
         assert_eq!(req.push_id(id_c), Ok(()));
         assert_eq!(req.emit(&mut frame), Ok(()));
+        assert_eq!(frame.check_len(), Ok(()));
+        assert_eq!(frame.check_preamble(), Ok(()));
+        assert_eq!(frame.op(), GetSetOp::Get);
         let packet = ParameterIdListPacket::new_checked(frame.payload_mut()).unwrap();
         assert_eq!(packet.check_len(), Ok(()));
         assert_eq!(packet.count(), 3);
         assert_eq!(packet.id_at(0), Ok(id_a));
         assert_eq!(packet.id_at(1), Ok(id_b));
         assert_eq!(packet.id_at(2), Ok(id_c));
+    }
+
+    #[test]
+    fn parse() {
+        let f = GetSetFrame::new_checked(&FRAME_BYTES[..]).unwrap();
+        assert_eq!(f.preamble(), PREAMBLE_WORD);
+        assert_eq!(f.op(), GetSetOp::Set);
+        assert_eq!(f.payload(), &PAYLOAD_BYTES[..]);
+        let p = ParameterListPacket::new_checked(f.payload()).unwrap();
+        assert_eq!(p.count(), PARAMS.len().try_into().unwrap());
+        for index in 0..PARAMS.len() {
+            assert_eq!(p.parameter_at(index), Ok(PARAMS[index]));
+        }
+
+        let req = Request::parse(&f).unwrap();
+        assert_eq!(req.params.len(), PARAMS.len());
+        for (index, p) in req.params.iter().enumerate() {
+            assert_eq!(*p, PARAMS[index]);
+        }
     }
 }
