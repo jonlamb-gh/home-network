@@ -6,6 +6,7 @@ pub enum Value {
     Bool(bool),
     U8(u8),
     U32(u32),
+    I32(i32),
     F32(f32),
 }
 
@@ -24,7 +25,8 @@ pub(crate) enum TypeId {
     Bool = 2,
     U8 = 3,
     U32 = 4,
-    F32 = 5,
+    I32 = 5,
+    F32 = 6,
 }
 
 impl TypeId {
@@ -40,6 +42,7 @@ impl TypeId {
             TypeId::Bool => 1,
             TypeId::U8 => 1,
             TypeId::U32 => 4,
+            TypeId::I32 => 4,
             TypeId::F32 => 4,
         }
     }
@@ -53,7 +56,8 @@ impl From<u8> for TypeId {
             2 => TypeId::Bool,
             3 => TypeId::U8,
             4 => TypeId::U32,
-            5 => TypeId::F32,
+            5 => TypeId::I32,
+            6 => TypeId::F32,
             _ => TypeId::None,
         }
     }
@@ -67,6 +71,7 @@ impl From<Value> for TypeId {
             Value::Bool(_) => TypeId::Bool,
             Value::U8(_) => TypeId::U8,
             Value::U32(_) => TypeId::U32,
+            Value::I32(_) => TypeId::I32,
             Value::F32(_) => TypeId::F32,
         }
     }

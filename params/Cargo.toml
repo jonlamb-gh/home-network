@@ -13,3 +13,7 @@ typenum = "*"
 [dependencies.byteorder]
 version = "1.3.2"
 default-features = false
+
+[dev-dependencies.approx]
+version = "0.3"
+default-features = false
