@@ -11,7 +11,8 @@ mod field {
 
     pub const PREAMBLE: Field = 0..4;
     pub const OP: usize = 4;
-    pub const PAYLOAD: Rest = 5..;
+    pub const PAYLOAD_SIZE: Field = 5..7;
+    pub const PAYLOAD: Rest = 7..;
 }
 
 impl<T: AsRef<[u8]>> Frame<T> {
@@ -66,6 +67,12 @@ impl<T: AsRef<[u8]>> Frame<T> {
         let data = self.buffer.as_ref();
         GetSetOp::from(data[field::OP])
     }
+
+    #[inline]
+    pub fn payload_size(&self) -> u16 {
+        let data = self.buffer.as_ref();
+        LittleEndian::read_u16(&data[field::PAYLOAD_SIZE])
+    }
 }
 
 impl<'a, T: AsRef<[u8]> + ?Sized> Frame<&'a T> {
@@ -90,6 +97,12 @@ impl<T: AsRef<[u8]> + AsMut<[u8]>> Frame<T> {
     }
 
     #[inline]
+    pub fn set_payload_size(&mut self, value: u16) {
+        let data = self.buffer.as_mut();
+        LittleEndian::write_u16(&mut data[field::PAYLOAD_SIZE], value);
+    }
+
+    #[inline]
     pub fn payload_mut(&mut self) -> &mut [u8] {
         let data = self.buffer.as_mut();
         &mut data[field::PAYLOAD]
@@ -107,11 +120,12 @@ mod tests {
     use super::*;
     use crate::value::TypeId;
     use crate::{ParameterPacket, MAX_PARAMS_PER_OP, PREAMBLE_WORD};
+    use core::convert::TryInto;
 
-    static FRAME_BYTES: [u8; 34] = [
-        0xAB, 0xCD, 0xEF, 0xFF, 0x01, 0x07, 0x0A, 0x00, 0x00, 0x00, 0x0B, 0x00, 0x00, 0x00, 0x0C,
-        0x00, 0x00, 0x00, 0x0D, 0x00, 0x00, 0x00, 0x0E, 0x00, 0x00, 0x00, 0x0F, 0x00, 0x00, 0x00,
-        0x10, 0x00, 0x00, 0x00,
+    static FRAME_BYTES: [u8; 36] = [
+        0xAB, 0xCD, 0xEF, 0xFF, 0x01, 0x1D, 0x00, 0x07, 0x0A, 0x00, 0x00, 0x00, 0x0B, 0x00, 0x00,
+        0x00, 0x0C, 0x00, 0x00, 0x00, 0x0D, 0x00, 0x00, 0x00, 0x0E, 0x00, 0x00, 0x00, 0x0F, 0x00,
+        0x00, 0x00, 0x10, 0x00, 0x00, 0x00,
     ];
 
     static PAYLOAD_BYTES: [u8; 29] = [
@@ -121,8 +135,8 @@ mod tests {
 
     #[test]
     fn header_len() {
-        assert_eq!(Frame::<&[u8]>::header_len(), 5);
-        assert_eq!(Frame::<&[u8]>::buffer_len(22), 5 + 22);
+        assert_eq!(Frame::<&[u8]>::header_len(), 7);
+        assert_eq!(Frame::<&[u8]>::buffer_len(22), 7 + 22);
     }
 
     #[test]
@@ -134,11 +148,12 @@ mod tests {
 
     #[test]
     fn construct() {
-        let mut bytes = [0xFF; 34];
+        let mut bytes = [0xFF; 36];
         let mut f = Frame::new_unchecked(&mut bytes[..]);
         assert_eq!(f.check_len(), Ok(()));
         f.set_preamble(PREAMBLE_WORD);
         f.set_op(GetSetOp::Get);
+        f.set_payload_size(PAYLOAD_BYTES.len().try_into().unwrap());
         f.payload_mut().copy_from_slice(&PAYLOAD_BYTES[..]);
         assert_eq!(f.check_preamble(), Ok(()));
         assert_eq!(&f.into_inner()[..], &FRAME_BYTES[..]);

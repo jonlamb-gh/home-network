@@ -1,7 +1,5 @@
 #![no_std]
 
-// TODO - add a payload_len to GetSetFrame?
-
 pub use crate::error::Error;
 pub use crate::flags::Flags as ParameterFlags;
 pub use crate::getset::{MaxParamsPerOp, Op as GetSetOp, MAX_PARAMS_PER_OP, PREAMBLE_WORD};
