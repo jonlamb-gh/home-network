@@ -1,8 +1,34 @@
 #![no_std]
 
+// TODO RequestFrame and ResponseFrame should be combined into a GetSetFrame
+// only the payload is different
+//
+// unify them:
+// GetSet (wire)
+//   preamble
+//   op
+//   count
+//   ids | params | none (payload at the frame level)
+//
+// payload can be:
+//   ParameterIdList
+//   ParameterList
+//   None
+//
+//
+// currently:
+//
+// Request
+//   has ids when get
+//   has params when set
+//   none when list-all
+//
+// Response
+//   has params
+
 pub use crate::error::Error;
 pub use crate::flags::Flags as ParameterFlags;
-pub use crate::getset::{MaxParamsPerOp, Op as GetSetOp, MAX_PARAMS_PER_OP};
+pub use crate::getset::{MaxParamsPerOp, Op as GetSetOp, MAX_PARAMS_PER_OP, PREAMBLE_WORD};
 pub use crate::id::Id as ParameterId;
 pub use crate::parameter::Parameter;
 pub use crate::parameter_frame::Frame as ParameterFrame;

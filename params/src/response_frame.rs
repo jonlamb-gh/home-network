@@ -1,4 +1,5 @@
 use crate::{Error, GetSetOp, Parameter, ParameterFrame, MAX_PARAMS_PER_OP};
+use byteorder::{ByteOrder, LittleEndian};
 
 #[derive(Debug, Clone)]
 pub struct Frame<T: AsRef<[u8]>> {
@@ -8,9 +9,10 @@ pub struct Frame<T: AsRef<[u8]>> {
 mod field {
     use crate::wire::field::*;
 
-    pub const OP: usize = 0;
-    pub const COUNT: usize = 1;
-    pub const PARAMS: Rest = 2..;
+    pub const PREAMBLE: Field = 0..4;
+    pub const OP: usize = 4;
+    pub const COUNT: usize = 5;
+    pub const PARAMS: Rest = 6..;
 }
 
 impl<T: AsRef<[u8]>> Frame<T> {
@@ -46,6 +48,12 @@ impl<T: AsRef<[u8]>> Frame<T> {
     }
 
     #[inline]
+    pub fn preamble(&self) -> u32 {
+        let data = self.buffer.as_ref();
+        LittleEndian::read_u32(&data[field::PREAMBLE])
+    }
+
+    #[inline]
     pub fn op(&self) -> GetSetOp {
         let data = self.buffer.as_ref();
         GetSetOp::from(data[field::OP])
@@ -75,6 +83,12 @@ impl<T: AsRef<[u8]>> Frame<T> {
 }
 
 impl<T: AsRef<[u8]> + AsMut<[u8]>> Frame<T> {
+    #[inline]
+    pub fn set_preamble(&mut self, value: u32) {
+        let data = self.buffer.as_mut();
+        LittleEndian::write_u32(&mut data[field::PREAMBLE], value);
+    }
+
     #[inline]
     pub fn set_op(&mut self, value: GetSetOp) {
         let data = self.buffer.as_mut();

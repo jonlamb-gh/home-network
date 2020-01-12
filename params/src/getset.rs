@@ -4,6 +4,8 @@ use typenum::Unsigned;
 pub type MaxParamsPerOp = U64;
 pub const MAX_PARAMS_PER_OP: usize = MaxParamsPerOp::USIZE;
 
+pub const PREAMBLE_WORD: u32 = 0xFF_EF_CD_AB;
+
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
 pub enum Op {
     ListAll = 0,

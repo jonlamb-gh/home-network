@@ -81,15 +81,14 @@ impl<T: AsRef<[u8]>> Frame<T> {
     #[inline]
     pub fn value(&self) -> ParameterValue {
         let data = self.buffer.as_ref();
-        match data[field::VALUE_TYPE_ID] {
-            0 => ParameterValue::None,
-            1 => ParameterValue::Notification,
-            2 => ParameterValue::Bool(data[field::VALUE.start] != 0),
-            3 => ParameterValue::U8(data[field::VALUE.start]),
-            4 => ParameterValue::U32(LittleEndian::read_u32(&data[field::VALUE])),
-            5 => ParameterValue::I32(LittleEndian::read_i32(&data[field::VALUE])),
-            6 => ParameterValue::F32(LittleEndian::read_f32(&data[field::VALUE])),
-            _ => ParameterValue::None,
+        match TypeId::from(data[field::VALUE_TYPE_ID]) {
+            TypeId::None => ParameterValue::None,
+            TypeId::Notification => ParameterValue::Notification,
+            TypeId::Bool => ParameterValue::Bool(data[field::VALUE.start] != 0),
+            TypeId::U8 => ParameterValue::U8(data[field::VALUE.start]),
+            TypeId::U32 => ParameterValue::U32(LittleEndian::read_u32(&data[field::VALUE])),
+            TypeId::I32 => ParameterValue::I32(LittleEndian::read_i32(&data[field::VALUE])),
+            TypeId::F32 => ParameterValue::F32(LittleEndian::read_f32(&data[field::VALUE])),
         }
     }
 }
@@ -178,6 +177,12 @@ mod tests {
         0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0A, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         0x00, 0x06, 0xB6, 0xF3, 0x9D, 0xBF,
     ];
+
+    #[test]
+    fn header_len() {
+        assert_eq!(Frame::<&[u8]>::header_len(), 17);
+        assert_eq!(Frame::<&[u8]>::buffer_len(22), 17 + 22);
+    }
 
     #[test]
     fn construct_none() {
