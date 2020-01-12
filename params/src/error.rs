@@ -2,5 +2,6 @@
 pub enum Error {
     WireTruncated,
     WireIndexOutOfBounds,
+    WirePreamble,
     Capacity,
 }

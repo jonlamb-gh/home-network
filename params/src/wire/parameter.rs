@@ -8,7 +8,7 @@ assert_eq_size!(u8, TypeId);
 //assert_eq_size!(u64, local_time_ms);
 
 #[derive(Debug, Clone)]
-pub struct Frame<T: AsRef<[u8]>> {
+pub struct Packet<T: AsRef<[u8]>> {
     buffer: T,
 }
 
@@ -22,12 +22,12 @@ mod field {
     pub const VALUE: Rest = 17..;
 }
 
-impl<T: AsRef<[u8]>> Frame<T> {
-    pub fn new_unchecked(buffer: T) -> Frame<T> {
-        Frame { buffer }
+impl<T: AsRef<[u8]>> Packet<T> {
+    pub fn new_unchecked(buffer: T) -> Packet<T> {
+        Packet { buffer }
     }
 
-    pub fn new_checked(buffer: T) -> Result<Frame<T>, Error> {
+    pub fn new_checked(buffer: T) -> Result<Packet<T>, Error> {
         let packet = Self::new_unchecked(buffer);
         packet.check_len()?;
         Ok(packet)
@@ -93,7 +93,7 @@ impl<T: AsRef<[u8]>> Frame<T> {
     }
 }
 
-impl<T: AsRef<[u8]> + AsMut<[u8]>> Frame<T> {
+impl<T: AsRef<[u8]> + AsMut<[u8]>> Packet<T> {
     #[inline]
     pub fn set_local_time_ms(&mut self, value: u64) {
         let data = self.buffer.as_mut();
@@ -132,7 +132,7 @@ impl<T: AsRef<[u8]> + AsMut<[u8]>> Frame<T> {
     }
 }
 
-impl<T: AsRef<[u8]>> AsRef<[u8]> for Frame<T> {
+impl<T: AsRef<[u8]>> AsRef<[u8]> for Packet<T> {
     fn as_ref(&self) -> &[u8] {
         self.buffer.as_ref()
     }
@@ -180,14 +180,14 @@ mod tests {
 
     #[test]
     fn header_len() {
-        assert_eq!(Frame::<&[u8]>::header_len(), 17);
-        assert_eq!(Frame::<&[u8]>::buffer_len(22), 17 + 22);
+        assert_eq!(Packet::<&[u8]>::header_len(), 17);
+        assert_eq!(Packet::<&[u8]>::buffer_len(22), 17 + 22);
     }
 
     #[test]
     fn construct_none() {
         let mut bytes = [0xFF; 17];
-        let mut f = Frame::new_unchecked(&mut bytes);
+        let mut f = Packet::new_unchecked(&mut bytes);
         assert_eq!(f.check_len(), Ok(()));
         f.set_local_time_ms(255);
         f.set_id(0x0A_u32.into());
@@ -198,7 +198,7 @@ mod tests {
 
     #[test]
     fn deconstruct_none() {
-        let f = Frame::new_checked(&NONE_PARAM_BYTES[..]).unwrap();
+        let f = Packet::new_checked(&NONE_PARAM_BYTES[..]).unwrap();
         assert_eq!(f.local_time_ms(), 255);
         assert_eq!(f.id(), 0x0A_u32.into());
         assert_eq!(f.flags(), 0_u32.into());
@@ -208,7 +208,7 @@ mod tests {
     #[test]
     fn construct_notif() {
         let mut bytes = [0xFF; 17];
-        let mut f = Frame::new_unchecked(&mut bytes);
+        let mut f = Packet::new_unchecked(&mut bytes);
         assert_eq!(f.check_len(), Ok(()));
         f.set_local_time_ms(255);
         f.set_id(0x0A_u32.into());
@@ -219,7 +219,7 @@ mod tests {
 
     #[test]
     fn deconstruct_notif() {
-        let f = Frame::new_checked(&NOTIF_PARAM_BYTES[..]).unwrap();
+        let f = Packet::new_checked(&NOTIF_PARAM_BYTES[..]).unwrap();
         assert_eq!(f.local_time_ms(), 255);
         assert_eq!(f.id(), 0x0A_u32.into());
         assert_eq!(f.flags(), 0_u32.into());
@@ -229,7 +229,7 @@ mod tests {
     #[test]
     fn construct_bool() {
         let mut bytes = [0xFF; 18];
-        let mut f = Frame::new_unchecked(&mut bytes);
+        let mut f = Packet::new_unchecked(&mut bytes);
         assert_eq!(f.check_len(), Ok(()));
         f.set_local_time_ms(255);
         f.set_id(0x0A_u32.into());
@@ -240,7 +240,7 @@ mod tests {
 
     #[test]
     fn deconstruct_bool() {
-        let f = Frame::new_checked(&BOOL_PARAM_BYTES[..]).unwrap();
+        let f = Packet::new_checked(&BOOL_PARAM_BYTES[..]).unwrap();
         assert_eq!(f.local_time_ms(), 255);
         assert_eq!(f.id(), 0x0A_u32.into());
         assert_eq!(f.flags(), 0_u32.into());
@@ -250,7 +250,7 @@ mod tests {
     #[test]
     fn construct_u8() {
         let mut bytes = [0xFF; 18];
-        let mut f = Frame::new_unchecked(&mut bytes);
+        let mut f = Packet::new_unchecked(&mut bytes);
         assert_eq!(f.check_len(), Ok(()));
         f.set_local_time_ms(255);
         f.set_id(0x0A_u32.into());
@@ -261,7 +261,7 @@ mod tests {
 
     #[test]
     fn deconstruct_u8() {
-        let f = Frame::new_checked(&U8_PARAM_BYTES[..]).unwrap();
+        let f = Packet::new_checked(&U8_PARAM_BYTES[..]).unwrap();
         assert_eq!(f.local_time_ms(), 255);
         assert_eq!(f.id(), 0x0A_u32.into());
         assert_eq!(f.flags(), 0_u32.into());
@@ -271,7 +271,7 @@ mod tests {
     #[test]
     fn construct_u32() {
         let mut bytes = [0xFF; 21];
-        let mut f = Frame::new_unchecked(&mut bytes);
+        let mut f = Packet::new_unchecked(&mut bytes);
         assert_eq!(f.check_len(), Ok(()));
         f.set_local_time_ms(255);
         f.set_id(0x0A_u32.into());
@@ -282,7 +282,7 @@ mod tests {
 
     #[test]
     fn deconstruct_u32() {
-        let f = Frame::new_checked(&U32_PARAM_BYTES[..]).unwrap();
+        let f = Packet::new_checked(&U32_PARAM_BYTES[..]).unwrap();
         assert_eq!(f.local_time_ms(), 255);
         assert_eq!(f.id(), 0x0A_u32.into());
         assert_eq!(f.flags(), 0_u32.into());
@@ -292,7 +292,7 @@ mod tests {
     #[test]
     fn construct_i32() {
         let mut bytes = [0xFF; 21];
-        let mut f = Frame::new_unchecked(&mut bytes);
+        let mut f = Packet::new_unchecked(&mut bytes);
         assert_eq!(f.check_len(), Ok(()));
         f.set_local_time_ms(255);
         f.set_id(0x0A_u32.into());
@@ -303,7 +303,7 @@ mod tests {
 
     #[test]
     fn deconstruct_i32() {
-        let f = Frame::new_checked(&I32_PARAM_BYTES[..]).unwrap();
+        let f = Packet::new_checked(&I32_PARAM_BYTES[..]).unwrap();
         assert_eq!(f.local_time_ms(), 255);
         assert_eq!(f.id(), 0x0A_u32.into());
         assert_eq!(f.flags(), 0_u32.into());
@@ -313,7 +313,7 @@ mod tests {
     #[test]
     fn construct_f32() {
         let mut bytes = [0xFF; 21];
-        let mut f = Frame::new_unchecked(&mut bytes);
+        let mut f = Packet::new_unchecked(&mut bytes);
         assert_eq!(f.check_len(), Ok(()));
         f.set_local_time_ms(255);
         f.set_id(0x0A_u32.into());
@@ -324,7 +324,7 @@ mod tests {
 
     #[test]
     fn deconstruct_f32() {
-        let f = Frame::new_checked(&F32_PARAM_BYTES[..]).unwrap();
+        let f = Packet::new_checked(&F32_PARAM_BYTES[..]).unwrap();
         assert_eq!(f.local_time_ms(), 255);
         assert_eq!(f.id(), 0x0A_u32.into());
         assert_eq!(f.flags(), 0_u32.into());
