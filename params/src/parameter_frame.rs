@@ -73,14 +73,21 @@ impl<T: AsRef<[u8]>> Frame<T> {
     }
 
     #[inline]
+    pub(crate) fn value_type_id(&self) -> TypeId {
+        let data = self.buffer.as_ref();
+        TypeId::from(data[field::VALUE_TYPE_ID])
+    }
+
+    #[inline]
     pub fn value(&self) -> ParameterValue {
         let data = self.buffer.as_ref();
         match data[field::VALUE_TYPE_ID] {
             0 => ParameterValue::None,
             1 => ParameterValue::Notification,
-            2 => ParameterValue::U8(data[field::VALUE.start]),
-            3 => ParameterValue::U32(LittleEndian::read_u32(&data[field::VALUE])),
-            4 => ParameterValue::F32(LittleEndian::read_f32(&data[field::VALUE])),
+            2 => ParameterValue::Bool(data[field::VALUE.start] != 0),
+            3 => ParameterValue::U8(data[field::VALUE.start]),
+            4 => ParameterValue::U32(LittleEndian::read_u32(&data[field::VALUE])),
+            5 => ParameterValue::F32(LittleEndian::read_f32(&data[field::VALUE])),
             _ => ParameterValue::None,
         }
     }
@@ -112,6 +119,9 @@ impl<T: AsRef<[u8]> + AsMut<[u8]>> Frame<T> {
         match value {
             ParameterValue::None => (),
             ParameterValue::Notification => (),
+            ParameterValue::Bool(inner) => {
+                data[field::VALUE.start] = inner as u8;
+            }
             ParameterValue::U8(inner) => {
                 data[field::VALUE.start] = inner;
             }
