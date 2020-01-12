@@ -170,4 +170,54 @@ mod tests {
                 + mem::size_of::<u32>()
         );
     }
+
+    #[test]
+    fn emit() {
+        let req = Request::new(GetSetOp::ListAll);
+        let mut bytes = [0xFF; 64];
+        let mut frame = GetSetFrame::new_unchecked(&mut bytes[..]);
+        assert_eq!(req.emit(&mut frame), Ok(()));
+        assert_eq!(frame.check_len(), Ok(()));
+        assert_eq!(frame.check_preamble(), Ok(()));
+
+        let mut req = Request::new(GetSetOp::Set);
+        let p_a = Parameter::new_with_value(
+            ParameterId::new(0x0A),
+            ParameterFlags(0),
+            ParameterValue::I32(-1234),
+        );
+        let p_b = Parameter::new_with_value(
+            ParameterId::new(0x0B),
+            ParameterFlags(0),
+            ParameterValue::Bool(true),
+        );
+        assert_eq!(req.push_parameter(p_a), Ok(()));
+        assert_eq!(req.push_parameter(p_b), Ok(()));
+
+        let mut bytes = [0xFF; 64];
+        let mut frame = GetSetFrame::new_unchecked(&mut bytes[..]);
+        assert_eq!(req.emit(&mut frame), Ok(()));
+        assert_eq!(frame.check_len(), Ok(()));
+        assert_eq!(frame.check_preamble(), Ok(()));
+        let packet = ParameterListPacket::new_checked(frame.payload_mut()).unwrap();
+        assert_eq!(packet.check_len(), Ok(()));
+        assert_eq!(packet.count(), 2);
+        assert_eq!(packet.parameter_at(0), Ok(p_a));
+        assert_eq!(packet.parameter_at(1), Ok(p_b));
+
+        let mut req = Request::new(GetSetOp::Get);
+        let id_a = ParameterId::new(0x0A);
+        let id_b = ParameterId::new(0x0B);
+        let id_c = ParameterId::new(0x0C);
+        assert_eq!(req.push_id(id_a), Ok(()));
+        assert_eq!(req.push_id(id_b), Ok(()));
+        assert_eq!(req.push_id(id_c), Ok(()));
+        assert_eq!(req.emit(&mut frame), Ok(()));
+        let packet = ParameterIdListPacket::new_checked(frame.payload_mut()).unwrap();
+        assert_eq!(packet.check_len(), Ok(()));
+        assert_eq!(packet.count(), 3);
+        assert_eq!(packet.id_at(0), Ok(id_a));
+        assert_eq!(packet.id_at(1), Ok(id_b));
+        assert_eq!(packet.id_at(2), Ok(id_c));
+    }
 }
