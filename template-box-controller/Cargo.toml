@@ -1,0 +1,55 @@
+[package]
+name = "template-box-controller"
+version = "0.1.0"
+authors = ["Jon Lamb"]
+edition = "2018"
+
+[lib]
+name = "lib"
+path = "src/lib.rs"
+
+[[bin]]
+name = "bin"
+path = "src/main.rs"
+
+[profile.release]
+codegen-units = 1 # Better optimizations
+debug = true # Symbols are nice and they don't increase the size on Flash
+lto = true # Better optimizations
+
+[dependencies]
+cortex-m = "0.6"
+cortex-m-rt = "0.6"
+
+[dependencies.stm32f4xx-hal]
+default-features = false
+features = ["rt", "stm32f429"]
+git = "https://github.com/jonlamb-gh/stm32f4xx-hal.git"
+branch = "home-phone-changes"
+
+[dependencies.log]
+version = "0.4"
+default-features = false
+
+[dependencies.stm32-eth]
+features = ["nucleo-f429zi", "smoltcp-phy"]
+git = "https://github.com/jonlamb-gh/stm32-eth.git"
+branch = "update-deps"
+
+[dependencies.smoltcp]
+git = "https://github.com/m-labs/smoltcp.git"
+branch = "master"
+default-features = false
+features = [
+    "ethernet",
+    "proto-ipv4",
+    "socket-icmp",
+    "socket-udp",
+    "socket-tcp",
+    #"log",
+    #"verbose"
+]
+
+[dev-dependencies.embedded-hal]
+features = ["unproven"]
+version = "*"
