@@ -7,6 +7,8 @@ bitfield! {
     #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Default)]
     pub struct Flags(u32);
     u32;
+    // TODO publish periodic (some bits for range 0-8 Hz?)
+    // udp_periodic_tx
     pub read_only, set_read_only : 0;
 }
 
