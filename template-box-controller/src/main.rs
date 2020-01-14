@@ -84,7 +84,7 @@ fn main() -> ! {
     debug!("Setup IP stack");
     let ip = Ipv4Address::from_bytes(&SRC_IP);
     let mac = EthernetAddress::from_bytes(&SRC_MAC);
-    info!("{}, {}", ip, mac);
+    info!("IP: {} MAC: {}", ip, mac);
     let ip_addr = IpCidr::new(ip.into(), 24);
     let mut ip_addrs = [ip_addr];
     let mut neighbor_storage = [None; NEIGHBOR_CACHE_SIZE];

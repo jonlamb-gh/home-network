@@ -13,6 +13,14 @@ bitfield! {
 }
 
 impl Flags {
+    pub const fn new() -> Self {
+        Flags(0)
+    }
+
+    pub const fn new_read_only() -> Self {
+        Flags(0x01)
+    }
+
     pub fn wire_size(&self) -> usize {
         4
     }

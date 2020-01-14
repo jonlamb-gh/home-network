@@ -16,6 +16,12 @@ impl Default for Value {
     }
 }
 
+impl Value {
+    pub(crate) fn type_id(&self) -> TypeId {
+        TypeId::from(*self)
+    }
+}
+
 // TODO - cleanup this pattern
 // Value prefixed with u8 type ID on the wire
 #[derive(Copy, Clone, PartialEq, PartialOrd, Debug)]

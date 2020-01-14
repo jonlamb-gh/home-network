@@ -48,6 +48,15 @@ impl Parameter {
         self.value
     }
 
+    pub fn set_value(&mut self, value: ParameterValue) -> Result<(), Error> {
+        if self.value.type_id() != value.type_id() {
+            Err(Error::ValueTypeMismatch)
+        } else {
+            self.value = value;
+            Ok(())
+        }
+    }
+
     pub fn wire_size(&self) -> usize {
         let value_size = TypeId::from(self.value()).wire_size();
         ParameterPacket::<&[u8]>::buffer_len(value_size)
@@ -86,6 +95,33 @@ mod tests {
         assert_eq!(
             p.wire_size(),
             ParameterPacket::<&[u8]>::header_len() + mem::size_of::<i32>()
+        );
+    }
+
+    #[test]
+    fn getter_methods() {
+        let p = Parameter::new_with_value(
+            ParameterId::new(0x0A),
+            ParameterFlags::new_read_only(),
+            ParameterValue::I32(-1234),
+        );
+        assert_eq!(p.id(), ParameterId::new(0x0A));
+        assert_eq!(p.flags(), ParameterFlags::new_read_only());
+        assert_eq!(p.value(), ParameterValue::I32(-1234));
+    }
+
+    #[test]
+    fn setter_methods() {
+        let mut p = Parameter::new_with_value(
+            ParameterId::new(0x0A),
+            ParameterFlags::new_read_only(),
+            ParameterValue::I32(-1234),
+        );
+        assert_eq!(p.value(), ParameterValue::I32(-1234));
+        assert_eq!(p.set_value(ParameterValue::I32(23)), Ok(()));
+        assert_eq!(
+            p.set_value(ParameterValue::Bool(false)),
+            Err(Error::ValueTypeMismatch)
         );
     }
 }

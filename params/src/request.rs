@@ -5,6 +5,7 @@ use crate::{
 use heapless::Vec;
 
 // TODO - revist this impl, could be much more memory conscious
+// wrap a slice of refs instead?
 #[derive(Clone, PartialEq, Debug, Default)]
 pub struct Request {
     op: GetSetOp,
