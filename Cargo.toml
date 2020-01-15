@@ -1,0 +1,8 @@
+[workspace]
+members = [
+    "params",
+]
+
+exclude = [
+    "template-box-controller",
+]

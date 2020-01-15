@@ -2,6 +2,10 @@
 
 pub extern crate stm32f4xx_hal as hal;
 
+use heapless::mpmc::Q32;
+
+// TODO - use a prelude?
+
 pub mod error;
 pub mod logger;
 pub mod net;
@@ -10,10 +14,4 @@ pub mod sync;
 pub mod sys_clock;
 pub mod time;
 
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
-    }
-}
+static PARAM_EVENT_Q: Q32<crate::params::Event> = Q32::new();
