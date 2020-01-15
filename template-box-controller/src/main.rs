@@ -90,6 +90,7 @@ fn main() -> ! {
     log::set_logger(&GLOBAL_LOGGER).unwrap();
     log::set_max_level(LevelFilter::Trace);
 
+    // TODO - impl core::fmt:Display for things
     debug!("Setup parameters");
     let mut params = Params::new();
     for p in &STATIC_RO_PARAMS {
@@ -205,10 +206,14 @@ fn main() -> ! {
         if param_bcast_pending {
             debug!("bcast");
             let mut frame = GetSetFrame::new_unchecked(&mut param_resp_buffer[..]);
-            let ref_resp = RefResponse::new(GetSetOp::Get, params.as_ref());
-            ref_resp.emit(&mut frame).unwrap();
-            let size = ref_resp.wire_size();
-            eth.send_udp_bcast(&frame.as_ref()[..size]).unwrap();
+            let bcast_params = params.get_all_broadcast();
+            debug!("bcast {} params", bcast_params.len());
+            if bcast_params.len() != 0 {
+                let ref_resp = RefResponse::new(GetSetOp::Get, bcast_params);
+                ref_resp.emit(&mut frame).unwrap();
+                let size = ref_resp.wire_size();
+                eth.send_udp_bcast(&frame.as_ref()[..size]).unwrap();
+            }
         }
 
         // TODO - timer for eth polling

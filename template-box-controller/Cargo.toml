@@ -54,6 +54,9 @@ features = [
     #"verbose"
 ]
 
+[dev-dependencies]
+pretty_assertions = "0.6.1"
+
 [dev-dependencies.embedded-hal]
 features = ["unproven"]
 version = "*"

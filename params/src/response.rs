@@ -1,10 +1,10 @@
+// TODO - make this use the RefResponse impl, it's a dup
+
 use crate::{
     Error, GetSetFrame, GetSetOp, MaxParamsPerOp, Parameter, ParameterListPacket, PREAMBLE_WORD,
 };
 use heapless::Vec;
 
-// TODO - consider a vec of references so caller
-// can build the vec via pointers to params in various places?
 #[derive(Clone, PartialEq, Debug, Default)]
 pub struct Response {
     op: GetSetOp,
