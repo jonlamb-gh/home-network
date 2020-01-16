@@ -12,14 +12,15 @@ use lib::hal::serial::{config::Config, Serial};
 use lib::hal::stm32::{self, interrupt, TIM2};
 use lib::hal::timer::{Event as TimerEvent, Timer};
 use lib::logger::Logger;
-use lib::net::eth::{Eth, NEIGHBOR_CACHE_SIZE, SOCKET_BUFFER_SIZE};
+use lib::net::eth::{Eth, MTU, NEIGHBOR_CACHE_SIZE, SOCKET_BUFFER_SIZE};
 use lib::params::Params;
-use lib::sys_clock::SysClock;
+use lib::sys_clock;
 use log::{debug, info, LevelFilter};
 use params::{
     GetSetFrame, GetSetOp, Parameter, ParameterFlags, ParameterId, ParameterValue, RefResponse,
 };
 use smoltcp::iface::{EthernetInterfaceBuilder, NeighborCache, Routes};
+use smoltcp::phy::Device;
 use smoltcp::socket::{
     SocketSet, TcpSocket, TcpSocketBuffer, UdpPacketMetadata, UdpSocket, UdpSocketBuffer,
 };
@@ -34,22 +35,40 @@ const UDP_BCAST_IP: Ipv4Address = Ipv4Address::BROADCAST;
 const UDP_BCAST_PORT: u16 = 9876;
 
 // Not sure having these make sense?
-const STATIC_RO_PARAMS: [Parameter; 2] = [
+const STATIC_RO_PARAMS: [Parameter; 6] = [
     Parameter::new_with_value(
         ParameterId::new(1),
         ParameterFlags::new_read_only_broadcast(),
-        ParameterValue::U8(123),
+        ParameterValue::Notification,
     ),
     Parameter::new_with_value(
         ParameterId::new(2),
         ParameterFlags::new_read_only_broadcast(),
         ParameterValue::Bool(false),
     ),
+    Parameter::new_with_value(
+        ParameterId::new(3),
+        ParameterFlags::new_read_only_broadcast(),
+        ParameterValue::U8(123),
+    ),
+    Parameter::new_with_value(
+        ParameterId::new(4),
+        ParameterFlags::new_read_only_broadcast(),
+        ParameterValue::U32(3456),
+    ),
+    Parameter::new_with_value(
+        ParameterId::new(5),
+        ParameterFlags::new_read_only_broadcast(),
+        ParameterValue::I32(-123),
+    ),
+    Parameter::new_with_value(
+        ParameterId::new(6),
+        ParameterFlags::new_read_only_broadcast(),
+        ParameterValue::F32(-1.234),
+    ),
 ];
 
 static GLOBAL_LOGGER: Logger = Logger::new();
-
-static GLOBAL_SYST_MS: Mutex<Cell<u64>> = Mutex::new(Cell::new(0));
 
 static GLOBAL_ETH_PENDING: Mutex<Cell<bool>> = Mutex::new(Cell::new(false));
 
@@ -120,6 +139,7 @@ fn main() -> ! {
     eth.enable_interrupt(&mut cp.NVIC);
 
     debug!("Setup IP stack");
+    assert_eq!((&mut eth).capabilities().max_transmission_unit, MTU);
     let ip = Ipv4Address::from_bytes(&SRC_IP);
     let mac = EthernetAddress::from_bytes(&SRC_MAC);
     info!("IP: {} MAC: {}", ip, mac);
@@ -161,7 +181,7 @@ fn main() -> ! {
 
     // Parameter response buffer
     let param_resp_buffer = {
-        static mut BUFFER: [u8; 1500] = [0; 1500];
+        static mut BUFFER: [u8; MTU] = [0; MTU];
         unsafe { &mut BUFFER[..] }
     };
 
@@ -175,7 +195,7 @@ fn main() -> ! {
     let mut eth = Eth::new(iface, sockets, tcp_handle, udp_handle, udp_endpoint).unwrap();
 
     debug!("Setup timers");
-    let mut param_bcast_timer = Timer::tim2(dp.TIM2, 2.hz(), clocks);
+    let mut param_bcast_timer = Timer::tim2(dp.TIM2, 1.hz(), clocks);
     param_bcast_timer.listen(TimerEvent::TimeOut);
 
     cortex_m::interrupt::free(|cs| {
@@ -191,23 +211,21 @@ fn main() -> ! {
     };
 
     debug!("Setup system clock");
-    let mut sys_clock = SysClock::new(cp.SYST, clocks);
+    sys_clock::start(cp.SYST, clocks);
 
     let mut last_sec = 0;
     loop {
-        // TODO revist SysClock, can we update continuously?
-        let ms: u64 = cortex_m::interrupt::free(|cs| GLOBAL_SYST_MS.borrow(cs).get());
-        sys_clock.set_time(ms);
-        let time = sys_clock.now();
+        //TODO
+        // need up update paramer.local_time_ms
+        let time = sys_clock::system_time();
 
         // TODO - error handling
         let param_bcast_pending =
             cortex_m::interrupt::free(|cs| GLOBAL_PARAM_BCAST_PENDING.borrow(cs).replace(false));
         if param_bcast_pending {
-            debug!("bcast");
             let mut frame = GetSetFrame::new_unchecked(&mut param_resp_buffer[..]);
             let bcast_params = params.get_all_broadcast();
-            debug!("bcast {} params", bcast_params.len());
+            debug!("bcast ({})", bcast_params.len());
             if bcast_params.len() != 0 {
                 let ref_resp = RefResponse::new(GetSetOp::Get, bcast_params);
                 ref_resp.emit(&mut frame).unwrap();
@@ -234,10 +252,8 @@ fn main() -> ! {
 #[exception]
 fn SysTick() {
     cortex_m::interrupt::free(|cs| {
-        let cell = GLOBAL_SYST_MS.borrow(cs);
-        let t = cell.get();
-        cell.replace(t.wrapping_add(1));
-    })
+        sys_clock::increment(cs);
+    });
 }
 
 #[interrupt]

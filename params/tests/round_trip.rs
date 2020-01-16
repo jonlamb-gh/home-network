@@ -6,7 +6,7 @@ fn round_trip_list_all() {
 
     let tx_req = Request::new(GetSetOp::ListAll);
     let wire_size = tx_req.wire_size();
-    let mut frame = GetSetFrame::new_unchecked(&mut bytes[..]);
+    let mut frame = GetSetFrame::new_unchecked(&mut bytes[..wire_size]);
     assert_eq!(tx_req.emit(&mut frame), Ok(()));
 
     let frame = GetSetFrame::new_checked(&bytes[..wire_size]).unwrap();
@@ -29,7 +29,7 @@ fn round_trip_list_all() {
     assert_eq!(tx_resp.push(p_a), Ok(()));
     assert_eq!(tx_resp.push(p_b), Ok(()));
     let wire_size = tx_resp.wire_size();
-    let mut frame = GetSetFrame::new_unchecked(&mut bytes[..]);
+    let mut frame = GetSetFrame::new_unchecked(&mut bytes[..wire_size]);
     assert_eq!(tx_resp.emit(&mut frame), Ok(()));
 
     let frame = GetSetFrame::new_checked(&bytes[..wire_size]).unwrap();

@@ -7,6 +7,7 @@ use smoltcp::wire::IpEndpoint;
 
 pub const NEIGHBOR_CACHE_SIZE: usize = 32;
 pub const SOCKET_BUFFER_SIZE: usize = 2048;
+pub const MTU: usize = 1500;
 
 // 49152..=65535
 const EPHEMERAL_PORT: u16 = 49152;

@@ -1,6 +1,7 @@
 // TODO - should bind value type to ID at code-gen time?
 
 use crate::error::Error;
+use crate::sys_clock;
 use crate::PARAM_EVENT_Q;
 use heapless::Vec;
 use params::{MaxParamsPerOp, Parameter, ParameterId, ParameterValue};
@@ -34,10 +35,11 @@ impl Params {
         Params { params: Vec::new() }
     }
 
-    pub fn add(&mut self, parameter: Parameter) -> Result<(), Error> {
+    pub fn add(&mut self, mut parameter: Parameter) -> Result<(), Error> {
         if self.params.iter().any(|p| p.id() == parameter.id()) {
             Err(Error::Duplicate)
         } else {
+            parameter.set_local_time_ms(sys_clock::system_millis());
             self.params.push(parameter).map_err(|_| Error::Capacity)?;
             let p: &mut [Parameter] = self.params.as_mut();
             // Sort them so all the parameters with bcast flag set
@@ -63,12 +65,16 @@ impl Params {
                     Err(Error::PermissionDenied)
                 } else {
                     p.set_value(value)?;
+                    p.set_local_time_ms(sys_clock::system_millis());
                     Ok(())
                 }
             })
     }
 
     // TODO
+    //
+    // add local_time_ms updating
+    //
     // async/queue setter fn's
     // heapless::mpmc::Q (static is safe in interrupt context)
     // static Event Q in main, deq. and call update/process_event?

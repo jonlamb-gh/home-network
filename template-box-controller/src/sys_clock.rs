@@ -1,45 +1,42 @@
 use crate::time::Instant;
+use crate::SYSTEM_MILLIS;
+use cortex_m::interrupt::CriticalSection;
 use cortex_m::peripheral::syst::SystClkSource;
 use hal::rcc::Clocks;
 use hal::stm32::SYST;
-use hal::time::Hertz;
 use log::debug;
 
-pub struct SysClock {
-    ms: u64,
-    frequency: Hertz,
+pub fn start(mut syst: SYST, clocks: Clocks) {
+    debug!("Enable SystemClock freq {} Hz", clocks.hclk().0);
+
+    // Generate an interrupt once a millisecond
+    syst.set_clock_source(SystClkSource::External);
+    syst.set_reload(clocks.hclk().0 / 8_000);
+    syst.clear_current();
+    syst.enable_counter();
+    syst.enable_interrupt();
+
+    // So the SYST can't be stopped or reset
+    drop(syst);
 }
 
-impl SysClock {
-    pub fn new(mut syst: SYST, clocks: Clocks) -> Self {
-        debug!("Enable SystemClock freq {} Hz", clocks.hclk().0);
+pub fn increment(cs: &CriticalSection) {
+    let cell = SYSTEM_MILLIS.borrow(cs);
+    let t = cell.get();
+    cell.replace(t.wrapping_add(1));
+}
 
-        // Generate an interrupt once a millisecond
-        syst.set_clock_source(SystClkSource::External);
-        syst.set_reload(clocks.hclk().0 / 8_000);
-        syst.clear_current();
-        syst.enable_counter();
-        syst.enable_interrupt();
+/// Time elapsed since `SystemClock` was started
+pub fn system_time() -> Instant {
+    Instant::from_millis(system_millis())
+}
 
-        // So the SYST can't be stopped or reset
-        drop(syst);
+#[cfg(not(test))]
+pub fn system_millis() -> u64 {
+    cortex_m::interrupt::free(|cs| SYSTEM_MILLIS.borrow(cs).get())
+}
 
-        SysClock {
-            ms: 0,
-            frequency: clocks.sysclk(),
-        }
-    }
-
-    pub fn frequency(&self) -> Hertz {
-        self.frequency
-    }
-
-    pub fn set_time(&mut self, ms: u64) {
-        self.ms = ms;
-    }
-
-    /// Time elapsed since `SystemClock` was created
-    pub fn now(&self) -> Instant {
-        Instant::from_millis(self.ms)
-    }
+#[cfg(test)]
+pub fn system_millis() -> u64 {
+    0
 }

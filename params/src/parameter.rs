@@ -36,6 +36,10 @@ impl Parameter {
         self.local_time_ms
     }
 
+    pub fn set_local_time_ms(&mut self, time: u64) {
+        self.local_time_ms = time;
+    }
+
     pub fn id(&self) -> ParameterId {
         self.id
     }
