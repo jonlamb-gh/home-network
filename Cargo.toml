@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "params",
+    "getset-cli",
 ]
 
 exclude = [
