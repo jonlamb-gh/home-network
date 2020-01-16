@@ -1,3 +1,5 @@
+use core::fmt;
+
 #[derive(Copy, Clone, PartialEq, PartialOrd, Debug)]
 pub enum Value {
     None,
@@ -19,6 +21,20 @@ impl Default for Value {
 impl Value {
     pub(crate) fn type_id(&self) -> TypeId {
         TypeId::from(*self)
+    }
+}
+
+impl fmt::Display for Value {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            Value::None => write!(f, "None"),
+            Value::Notification => write!(f, "Notification"),
+            Value::Bool(v) => write!(f, "Bool({})", v),
+            Value::U8(v) => write!(f, "U8({})", v),
+            Value::U32(v) => write!(f, "U32({})", v),
+            Value::I32(v) => write!(f, "I32({})", v),
+            Value::F32(v) => write!(f, "F32({})", v),
+        }
     }
 }
 

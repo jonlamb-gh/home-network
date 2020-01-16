@@ -109,11 +109,13 @@ fn main() -> ! {
     log::set_logger(&GLOBAL_LOGGER).unwrap();
     log::set_max_level(LevelFilter::Trace);
 
-    // TODO - impl core::fmt:Display for things
+    debug!("Setup system clock");
+    sys_clock::start(cp.SYST, clocks);
+
     debug!("Setup parameters");
     let mut params = Params::new();
     for p in &STATIC_RO_PARAMS {
-        debug!("Adding parameter ID {:?}", p.id());
+        debug!("Adding parameter ID {}", p.id());
         params.add(*p).unwrap();
     }
 
@@ -209,9 +211,6 @@ fn main() -> ! {
     unsafe {
         stm32::NVIC::unmask(interrupt::TIM2);
     };
-
-    debug!("Setup system clock");
-    sys_clock::start(cp.SYST, clocks);
 
     let mut last_sec = 0;
     loop {

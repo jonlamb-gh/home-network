@@ -1,4 +1,5 @@
 use bitfield::bitfield;
+use core::fmt;
 use static_assertions::assert_eq_size;
 
 assert_eq_size!(u32, Flags);
@@ -38,6 +39,12 @@ impl From<u32> for Flags {
 impl Into<u32> for Flags {
     fn into(self) -> u32 {
         self.0
+    }
+}
+
+impl fmt::Display for Flags {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "0x{:X}", self.0)
     }
 }
 

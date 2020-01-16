@@ -1,3 +1,4 @@
+use core::fmt;
 use heapless::consts::U64;
 use typenum::Unsigned;
 
@@ -33,5 +34,11 @@ impl From<u8> for Op {
             2 => Op::Set,
             _ => Op::ListAll,
         }
+    }
+}
+
+impl fmt::Display for Op {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", *self)
     }
 }

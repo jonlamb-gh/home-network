@@ -3,6 +3,7 @@
 use crate::{
     Error, GetSetFrame, GetSetOp, MaxParamsPerOp, Parameter, ParameterListPacket, PREAMBLE_WORD,
 };
+use core::fmt;
 use heapless::Vec;
 
 #[derive(Clone, PartialEq, Debug, Default)]
@@ -67,6 +68,16 @@ impl Response {
         p.set_count(self.params.len() as _);
         for (index, param) in self.params.iter().enumerate() {
             p.set_parameter_at(index, *param)?;
+        }
+        Ok(())
+    }
+}
+
+impl fmt::Display for Response {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        writeln!(f, "Response {{ op: {} }}", self.op())?;
+        for p in &self.params {
+            writeln!(f, "{}", p)?;
         }
         Ok(())
     }

@@ -16,3 +16,6 @@ path = "src/main.rs"
 structopt = "0.3.7"
 log = "0.4.8"
 simple_logger = "1.4.0"
+
+[dependencies.params]
+path = "../params"

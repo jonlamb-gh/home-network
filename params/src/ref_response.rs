@@ -1,4 +1,5 @@
 use crate::{Error, GetSetFrame, GetSetOp, Parameter, ParameterListPacket, PREAMBLE_WORD};
+use core::fmt;
 
 #[derive(Clone, PartialEq, Debug, Default)]
 pub struct RefResponse<P: AsRef<[Parameter]>> {
@@ -39,6 +40,16 @@ impl<P: AsRef<[Parameter]>> RefResponse<P> {
         p.set_count(self.params.as_ref().len() as _);
         for (index, param) in self.params.as_ref().iter().enumerate() {
             p.set_parameter_at(index, *param)?;
+        }
+        Ok(())
+    }
+}
+
+impl<P: AsRef<[Parameter]>> fmt::Display for RefResponse<P> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        writeln!(f, "RefResponse {{ op: {} }}", self.op())?;
+        for p in self.params.as_ref().iter() {
+            writeln!(f, "{}", p)?;
         }
         Ok(())
     }

@@ -1,5 +1,6 @@
 use crate::value::TypeId;
 use crate::{Error, ParameterFlags, ParameterId, ParameterPacket, ParameterValue};
+use core::fmt;
 
 #[derive(Copy, Clone, PartialEq, PartialOrd, Debug)]
 pub struct Parameter {
@@ -81,6 +82,19 @@ impl Parameter {
         frame.set_id(self.id);
         frame.set_flags(self.flags);
         frame.set_value(self.value);
+    }
+}
+
+impl fmt::Display for Parameter {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "Parameter {{ id: {} t: {} flags: {} value: {} }}",
+            self.id(),
+            self.local_time_ms(),
+            self.flags(),
+            self.value(),
+        )
     }
 }
 

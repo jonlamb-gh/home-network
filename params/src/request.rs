@@ -2,6 +2,7 @@ use crate::{
     Error, GetSetFrame, GetSetOp, MaxParamsPerOp, Parameter, ParameterId, ParameterIdListPacket,
     ParameterListPacket, PREAMBLE_WORD,
 };
+use core::fmt;
 use heapless::Vec;
 
 // TODO - revist this impl, could be much more memory conscious
@@ -116,6 +117,19 @@ impl Request {
                 Ok(())
             }
         }
+    }
+}
+
+impl fmt::Display for Request {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        writeln!(f, "Request {{ op: {} }}", self.op())?;
+        for p in &self.params {
+            writeln!(f, "{}", p)?;
+        }
+        for id in &self.ids {
+            writeln!(f, "{}", id)?;
+        }
+        Ok(())
     }
 }
 
