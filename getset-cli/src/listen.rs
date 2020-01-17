@@ -16,7 +16,7 @@ pub fn start_listening(address: SocketAddr) -> io::Result<()> {
 
         if amt >= GetSetFrame::<&[u8]>::header_len() {
             if let Ok(frame) = GetSetFrame::new_checked(&buf[..amt]) {
-                info!("Op: {}", frame.op());
+                info!("{}", frame);
                 if let Ok(resp) = Response::parse(&frame) {
                     info!("{}", resp);
                 }

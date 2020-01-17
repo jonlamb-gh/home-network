@@ -9,8 +9,16 @@ pub const PREAMBLE_WORD: u32 = 0xFF_EF_CD_AB;
 
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
 pub enum Op {
+    /// Request payload: None
+    /// Response payload: ParameterListPacket
     ListAll = 0,
+
+    /// Request payload: ParameterIdListPacket
+    /// Response payload: ParameterListPacket
     Get = 1,
+
+    /// Request payload: ParameterListPacket
+    /// Response payload: ParameterListPacket
     Set = 2,
 }
 

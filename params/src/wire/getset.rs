@@ -1,5 +1,6 @@
 use crate::{Error, GetSetOp, PREAMBLE_WORD};
 use byteorder::{ByteOrder, LittleEndian};
+use core::fmt;
 
 #[derive(Debug, Clone)]
 pub struct Frame<T: AsRef<[u8]>> {
@@ -10,9 +11,11 @@ mod field {
     use crate::wire::field::*;
 
     pub const PREAMBLE: Field = 0..4;
-    pub const OP: usize = 4;
-    pub const PAYLOAD_SIZE: Field = 5..7;
-    pub const PAYLOAD: Rest = 7..;
+    pub const NODE_ID: Field = 4..8;
+    pub const FLAGS: Field = 8..12;
+    pub const OP: usize = 12;
+    pub const PAYLOAD_SIZE: Field = 13..15;
+    pub const PAYLOAD: Rest = 15..;
 }
 
 impl<T: AsRef<[u8]>> Frame<T> {
@@ -62,6 +65,20 @@ impl<T: AsRef<[u8]>> Frame<T> {
         LittleEndian::read_u32(&data[field::PREAMBLE])
     }
 
+    // TODO
+    #[inline]
+    pub fn node_id(&self) -> u32 {
+        let data = self.buffer.as_ref();
+        LittleEndian::read_u32(&data[field::NODE_ID])
+    }
+
+    // TODO
+    #[inline]
+    pub fn flags(&self) -> u32 {
+        let data = self.buffer.as_ref();
+        LittleEndian::read_u32(&data[field::FLAGS])
+    }
+
     #[inline]
     pub fn op(&self) -> GetSetOp {
         let data = self.buffer.as_ref();
@@ -91,6 +108,18 @@ impl<T: AsRef<[u8]> + AsMut<[u8]>> Frame<T> {
     }
 
     #[inline]
+    pub fn set_node_id(&mut self, value: u32) {
+        let data = self.buffer.as_mut();
+        LittleEndian::write_u32(&mut data[field::NODE_ID], value);
+    }
+
+    #[inline]
+    pub fn set_flags(&mut self, value: u32) {
+        let data = self.buffer.as_mut();
+        LittleEndian::write_u32(&mut data[field::FLAGS], value);
+    }
+
+    #[inline]
     pub fn set_op(&mut self, value: GetSetOp) {
         let data = self.buffer.as_mut();
         data[field::OP] = value.as_u8();
@@ -115,17 +144,32 @@ impl<T: AsRef<[u8]>> AsRef<[u8]> for Frame<T> {
     }
 }
 
+impl<T: AsRef<[u8]>> fmt::Display for Frame<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "GetSetFrame {{ preamble: 0x{:X} node_id: 0x{:X} flags: 0x{:X} op: {} plsize: {}}}",
+            self.preamble(),
+            self.node_id(),
+            self.flags(),
+            self.op(),
+            self.payload_size(),
+        )
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::value::TypeId;
     use crate::{ParameterPacket, MAX_PARAMS_PER_OP, PREAMBLE_WORD};
     use core::convert::TryInto;
+    use pretty_assertions::assert_eq;
 
-    static FRAME_BYTES: [u8; 36] = [
-        0xAB, 0xCD, 0xEF, 0xFF, 0x01, 0x1D, 0x00, 0x07, 0x0A, 0x00, 0x00, 0x00, 0x0B, 0x00, 0x00,
-        0x00, 0x0C, 0x00, 0x00, 0x00, 0x0D, 0x00, 0x00, 0x00, 0x0E, 0x00, 0x00, 0x00, 0x0F, 0x00,
-        0x00, 0x00, 0x10, 0x00, 0x00, 0x00,
+    static FRAME_BYTES: [u8; 44] = [
+        0xAB, 0xCD, 0xEF, 0xFF, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x1D, 0x00,
+        0x07, 0x0A, 0x00, 0x00, 0x00, 0x0B, 0x00, 0x00, 0x00, 0x0C, 0x00, 0x00, 0x00, 0x0D, 0x00,
+        0x00, 0x00, 0x0E, 0x00, 0x00, 0x00, 0x0F, 0x00, 0x00, 0x00, 0x10, 0x00, 0x00, 0x00,
     ];
 
     static PAYLOAD_BYTES: [u8; 29] = [
@@ -135,8 +179,8 @@ mod tests {
 
     #[test]
     fn header_len() {
-        assert_eq!(Frame::<&[u8]>::header_len(), 7);
-        assert_eq!(Frame::<&[u8]>::buffer_len(22), 7 + 22);
+        assert_eq!(Frame::<&[u8]>::header_len(), 15);
+        assert_eq!(Frame::<&[u8]>::buffer_len(22), 15 + 22);
     }
 
     #[test]
@@ -148,10 +192,12 @@ mod tests {
 
     #[test]
     fn construct() {
-        let mut bytes = [0xFF; 36];
+        let mut bytes = [0xFF; 44];
         let mut f = Frame::new_unchecked(&mut bytes[..]);
         assert_eq!(f.check_len(), Ok(()));
         f.set_preamble(PREAMBLE_WORD);
+        f.set_node_id(0x01);
+        f.set_flags(0);
         f.set_op(GetSetOp::Get);
         f.set_payload_size(PAYLOAD_BYTES.len().try_into().unwrap());
         f.payload_mut().copy_from_slice(&PAYLOAD_BYTES[..]);
@@ -163,6 +209,8 @@ mod tests {
     fn deconstruct() {
         let f = Frame::new_checked(&FRAME_BYTES[..]).unwrap();
         assert_eq!(f.preamble(), PREAMBLE_WORD);
+        assert_eq!(f.node_id(), 0x01);
+        assert_eq!(f.flags(), 0);
         assert_eq!(f.op(), GetSetOp::Get);
         assert_eq!(f.payload(), &PAYLOAD_BYTES[..]);
     }
