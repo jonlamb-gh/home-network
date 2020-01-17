@@ -3,6 +3,7 @@ pub enum Error {
     WireTruncated,
     WireIndexOutOfBounds,
     WirePreamble,
+    WireInvalidPayloadType,
     Capacity,
     ValueTypeMismatch,
 }

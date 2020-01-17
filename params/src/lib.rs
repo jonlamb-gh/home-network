@@ -2,7 +2,11 @@
 
 pub use crate::error::Error;
 pub use crate::flags::Flags as ParameterFlags;
-pub use crate::getset::{MaxParamsPerOp, Op as GetSetOp, MAX_PARAMS_PER_OP, PREAMBLE_WORD};
+pub use crate::getset::{
+    Flags as GetSetFlags, MaxParamsPerOp, NodeId as GetSetNodeId, Op as GetSetOp,
+    PayloadType as GetSetPayloadType, Version as GetSetVersion, MAX_PARAMS_PER_OP,
+    NODE_ID_ANONYMOUS, PREAMBLE_WORD,
+};
 pub use crate::id::Id as ParameterId;
 pub use crate::parameter::Parameter;
 pub use crate::ref_response::RefResponse;

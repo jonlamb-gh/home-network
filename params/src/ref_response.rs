@@ -1,15 +1,25 @@
-use crate::{Error, GetSetFrame, GetSetOp, Parameter, ParameterListPacket, PREAMBLE_WORD};
+use crate::{
+    Error, GetSetFlags, GetSetFrame, GetSetNodeId, GetSetOp, GetSetPayloadType, Parameter,
+    ParameterListPacket, PREAMBLE_WORD,
+};
 use core::fmt;
 
 #[derive(Clone, PartialEq, Debug, Default)]
 pub struct RefResponse<P: AsRef<[Parameter]>> {
+    node_id: GetSetNodeId,
+    flags: GetSetFlags,
     op: GetSetOp,
     params: P,
 }
 
 impl<P: AsRef<[Parameter]>> RefResponse<P> {
-    pub fn new(op: GetSetOp, params: P) -> Self {
-        RefResponse { op, params }
+    pub fn new(node_id: GetSetNodeId, flags: GetSetFlags, op: GetSetOp, params: P) -> Self {
+        RefResponse {
+            node_id,
+            flags,
+            op,
+            params,
+        }
     }
 
     pub fn op(&self) -> GetSetOp {
@@ -34,7 +44,11 @@ impl<P: AsRef<[Parameter]>> RefResponse<P> {
         frame: &mut GetSetFrame<T>,
     ) -> Result<(), Error> {
         frame.set_preamble(PREAMBLE_WORD);
+        frame.set_node_id(self.node_id);
+        frame.set_flags(self.flags);
+        frame.set_version(1);
         frame.set_op(self.op);
+        frame.set_payload_type(GetSetPayloadType::ParameterListPacket);
         frame.set_payload_size(self.payload_wire_size() as u16);
         let mut p = ParameterListPacket::new_unchecked(frame.payload_mut());
         p.set_count(self.params.as_ref().len() as _);
@@ -76,7 +90,7 @@ mod tests {
             ),
         ];
 
-        let resp = RefResponse::new(GetSetOp::Set, &params[..]);
+        let resp = RefResponse::new(0, 0, GetSetOp::Set, &params[..]);
         assert_eq!(resp.op(), GetSetOp::Set);
         assert_eq!(resp.params.len(), 2);
         assert_eq!(
@@ -104,7 +118,7 @@ mod tests {
         );
         let params = [p_a, p_b];
 
-        let resp = RefResponse::new(GetSetOp::Set, &params[..]);
+        let resp = RefResponse::new(0, 0, GetSetOp::Set, &params[..]);
         assert_eq!(resp.op(), GetSetOp::Set);
 
         let mut bytes = [0xFF; 64];

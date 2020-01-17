@@ -1,4 +1,6 @@
-use crate::{Error, GetSetOp, PREAMBLE_WORD};
+use crate::{
+    Error, GetSetFlags, GetSetNodeId, GetSetOp, GetSetPayloadType, GetSetVersion, PREAMBLE_WORD,
+};
 use byteorder::{ByteOrder, LittleEndian};
 use core::fmt;
 
@@ -13,9 +15,11 @@ mod field {
     pub const PREAMBLE: Field = 0..4;
     pub const NODE_ID: Field = 4..8;
     pub const FLAGS: Field = 8..12;
-    pub const OP: usize = 12;
-    pub const PAYLOAD_SIZE: Field = 13..15;
-    pub const PAYLOAD: Rest = 15..;
+    pub const VERSION: usize = 12;
+    pub const OP: usize = 13;
+    pub const PAYLOAD_TYPE: usize = 14;
+    pub const PAYLOAD_SIZE: Field = 15..17;
+    pub const PAYLOAD: Rest = 17..;
 }
 
 impl<T: AsRef<[u8]>> Frame<T> {
@@ -65,24 +69,34 @@ impl<T: AsRef<[u8]>> Frame<T> {
         LittleEndian::read_u32(&data[field::PREAMBLE])
     }
 
-    // TODO
     #[inline]
-    pub fn node_id(&self) -> u32 {
+    pub fn node_id(&self) -> GetSetNodeId {
         let data = self.buffer.as_ref();
         LittleEndian::read_u32(&data[field::NODE_ID])
     }
 
-    // TODO
     #[inline]
-    pub fn flags(&self) -> u32 {
+    pub fn flags(&self) -> GetSetFlags {
         let data = self.buffer.as_ref();
         LittleEndian::read_u32(&data[field::FLAGS])
+    }
+
+    #[inline]
+    pub fn version(&self) -> GetSetVersion {
+        let data = self.buffer.as_ref();
+        data[field::VERSION]
     }
 
     #[inline]
     pub fn op(&self) -> GetSetOp {
         let data = self.buffer.as_ref();
         GetSetOp::from(data[field::OP])
+    }
+
+    #[inline]
+    pub fn payload_type(&self) -> GetSetPayloadType {
+        let data = self.buffer.as_ref();
+        GetSetPayloadType::from(data[field::PAYLOAD_TYPE])
     }
 
     #[inline]
@@ -108,21 +122,33 @@ impl<T: AsRef<[u8]> + AsMut<[u8]>> Frame<T> {
     }
 
     #[inline]
-    pub fn set_node_id(&mut self, value: u32) {
+    pub fn set_node_id(&mut self, value: GetSetNodeId) {
         let data = self.buffer.as_mut();
         LittleEndian::write_u32(&mut data[field::NODE_ID], value);
     }
 
     #[inline]
-    pub fn set_flags(&mut self, value: u32) {
+    pub fn set_flags(&mut self, value: GetSetFlags) {
         let data = self.buffer.as_mut();
         LittleEndian::write_u32(&mut data[field::FLAGS], value);
+    }
+
+    #[inline]
+    pub fn set_version(&mut self, value: GetSetVersion) {
+        let data = self.buffer.as_mut();
+        data[field::VERSION] = value;
     }
 
     #[inline]
     pub fn set_op(&mut self, value: GetSetOp) {
         let data = self.buffer.as_mut();
         data[field::OP] = value.as_u8();
+    }
+
+    #[inline]
+    pub fn set_payload_type(&mut self, value: GetSetPayloadType) {
+        let data = self.buffer.as_mut();
+        data[field::PAYLOAD_TYPE] = value.as_u8();
     }
 
     #[inline]
@@ -148,11 +174,13 @@ impl<T: AsRef<[u8]>> fmt::Display for Frame<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "GetSetFrame {{ preamble: 0x{:X} node_id: 0x{:X} flags: 0x{:X} op: {} plsize: {}}}",
+            "GetSetFrame {{ pa: 0x{:X} nid: 0x{:X} f: 0x{:X} v: {} op: {} pt: {} ps: {}}}",
             self.preamble(),
             self.node_id(),
             self.flags(),
+            self.version(),
             self.op(),
+            self.payload_type(),
             self.payload_size(),
         )
     }
@@ -166,10 +194,11 @@ mod tests {
     use core::convert::TryInto;
     use pretty_assertions::assert_eq;
 
-    static FRAME_BYTES: [u8; 44] = [
-        0xAB, 0xCD, 0xEF, 0xFF, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x1D, 0x00,
-        0x07, 0x0A, 0x00, 0x00, 0x00, 0x0B, 0x00, 0x00, 0x00, 0x0C, 0x00, 0x00, 0x00, 0x0D, 0x00,
-        0x00, 0x00, 0x0E, 0x00, 0x00, 0x00, 0x0F, 0x00, 0x00, 0x00, 0x10, 0x00, 0x00, 0x00,
+    static FRAME_BYTES: [u8; 46] = [
+        0xAB, 0xCD, 0xEF, 0xFF, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x01, 0x01,
+        0x1D, 0x00, 0x07, 0x0A, 0x00, 0x00, 0x00, 0x0B, 0x00, 0x00, 0x00, 0x0C, 0x00, 0x00, 0x00,
+        0x0D, 0x00, 0x00, 0x00, 0x0E, 0x00, 0x00, 0x00, 0x0F, 0x00, 0x00, 0x00, 0x10, 0x00, 0x00,
+        0x00,
     ];
 
     static PAYLOAD_BYTES: [u8; 29] = [
@@ -179,8 +208,8 @@ mod tests {
 
     #[test]
     fn header_len() {
-        assert_eq!(Frame::<&[u8]>::header_len(), 15);
-        assert_eq!(Frame::<&[u8]>::buffer_len(22), 15 + 22);
+        assert_eq!(Frame::<&[u8]>::header_len(), 17);
+        assert_eq!(Frame::<&[u8]>::buffer_len(22), 17 + 22);
     }
 
     #[test]
@@ -192,13 +221,15 @@ mod tests {
 
     #[test]
     fn construct() {
-        let mut bytes = [0xFF; 44];
+        let mut bytes = [0xFF; 46];
         let mut f = Frame::new_unchecked(&mut bytes[..]);
         assert_eq!(f.check_len(), Ok(()));
         f.set_preamble(PREAMBLE_WORD);
         f.set_node_id(0x01);
         f.set_flags(0);
+        f.set_version(1);
         f.set_op(GetSetOp::Get);
+        f.set_payload_type(GetSetPayloadType::ParameterIdListPacket);
         f.set_payload_size(PAYLOAD_BYTES.len().try_into().unwrap());
         f.payload_mut().copy_from_slice(&PAYLOAD_BYTES[..]);
         assert_eq!(f.check_preamble(), Ok(()));
@@ -211,7 +242,10 @@ mod tests {
         assert_eq!(f.preamble(), PREAMBLE_WORD);
         assert_eq!(f.node_id(), 0x01);
         assert_eq!(f.flags(), 0);
+        assert_eq!(f.version(), 1);
         assert_eq!(f.op(), GetSetOp::Get);
+        assert_eq!(f.payload_type(), GetSetPayloadType::ParameterIdListPacket);
+        assert_eq!(f.payload_size(), PAYLOAD_BYTES.len().try_into().unwrap());
         assert_eq!(f.payload(), &PAYLOAD_BYTES[..]);
     }
 }

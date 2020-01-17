@@ -4,7 +4,7 @@ use params::*;
 fn round_trip_list_all() {
     let mut bytes = vec![0xFF; 1500];
 
-    let tx_req = Request::new(GetSetOp::ListAll);
+    let tx_req = Request::new(0, 0, GetSetOp::ListAll, GetSetPayloadType::None);
     let wire_size = tx_req.wire_size();
     let mut frame = GetSetFrame::new_unchecked(&mut bytes[..wire_size]);
     assert_eq!(tx_req.emit(&mut frame), Ok(()));
@@ -25,7 +25,7 @@ fn round_trip_list_all() {
         ParameterValue::Bool(true),
     );
 
-    let mut tx_resp = Response::new(GetSetOp::ListAll);
+    let mut tx_resp = Response::new(0, 0, GetSetOp::ListAll);
     assert_eq!(tx_resp.push(p_a), Ok(()));
     assert_eq!(tx_resp.push(p_b), Ok(()));
     let wire_size = tx_resp.wire_size();
