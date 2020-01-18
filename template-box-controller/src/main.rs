@@ -13,7 +13,7 @@ use lib::hal::stm32::{self, interrupt, TIM2, TIM3};
 use lib::hal::timer::{Event as TimerEvent, Timer};
 use lib::logger::Logger;
 use lib::net::eth::{Eth, MTU, NEIGHBOR_CACHE_SIZE, SOCKET_BUFFER_SIZE};
-use lib::params::Params;
+use lib::params::{pop_event, push_event, Params};
 use lib::sys_clock;
 use log::{debug, info, LevelFilter};
 use params::{
@@ -143,7 +143,7 @@ fn main() -> ! {
         .add(Parameter::new_with_value(
             ParameterId::new(7),
             ParameterFlags::default(),
-            ParameterValue::F32(-1.234),
+            ParameterValue::Bool(false),
         ))
         .unwrap();
 
@@ -219,8 +219,6 @@ fn main() -> ! {
     let tcp_endpoint = IpEndpoint::new(TCP_SERVER_IP.into(), TCP_SERVER_PORT);
     let udp_endpoint = IpEndpoint::new(UDP_BCAST_IP.into(), UDP_BCAST_PORT);
 
-    // TODO - manage UDP broadcast and TCP sockets in ::eth
-    // poll returns something we know like request/response/etc
     let mut eth = Eth::new(
         iface,
         sockets,
@@ -264,6 +262,8 @@ fn main() -> ! {
     // - manage eth.status() (PhyStatus) events
     // - eth.get_phy() -> Phy, can reset/etc
     // - wait for link to be up?
+    //
+    // setup watchdog and parameter to hold last reset condition
     led_blue.set_low().unwrap();
     let mut last_sec = 0;
     loop {
@@ -275,7 +275,6 @@ fn main() -> ! {
         if param_bcast_pending {
             let mut frame = GetSetFrame::new_unchecked(&mut eth_frame_buffer[..]);
             let bcast_params = params.get_all_broadcast();
-            //debug!("bcast ({})", bcast_params.len());
             if bcast_params.len() != 0 {
                 let ref_resp =
                     RefResponse::new(NODE_ID, GetSetFlags::default(), GetSetOp::Get, bcast_params);
@@ -320,11 +319,15 @@ fn main() -> ! {
             }
         }
 
+        // Drain parameter event queue
+        pop_event().map(|e| params.process_event(e).unwrap());
+
         let sec = time.as_secs();
         if sec != last_sec {
-            //info!("{}", lib::time::DisplayableInstant::from(time));
             last_sec = sec;
             led_green.toggle().unwrap();
+            // TODO
+            push_event((7.into(), ParameterValue::Bool(true)).into()).ok();
         }
     }
 }

@@ -92,7 +92,7 @@ impl Response {
 
 impl fmt::Display for Response {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        writeln!(f, "Response {{ op: {} }}", self.op())?;
+        writeln!(f, "Response {{ nid: {} op: {} }}", self.node_id, self.op())?;
         for p in &self.params {
             writeln!(f, "{}", p)?;
         }

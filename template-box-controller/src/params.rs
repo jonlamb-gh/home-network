@@ -23,6 +23,15 @@ impl Event {
     }
 }
 
+impl From<(ParameterId, ParameterValue)> for Event {
+    fn from(v: (ParameterId, ParameterValue)) -> Self {
+        Event {
+            id: v.0,
+            value: v.1,
+        }
+    }
+}
+
 pub fn push_event(event: Event) -> Result<(), Error> {
     PARAM_EVENT_Q.enqueue(event).map_err(|_| Error::Capacity)
 }

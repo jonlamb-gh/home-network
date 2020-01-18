@@ -142,7 +142,7 @@ impl Request {
 
 impl fmt::Display for Request {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        writeln!(f, "Request {{ op: {} }}", self.op())?;
+        writeln!(f, "Request {{ nid: {} op: {} }}", self.node_id, self.op())?;
         for p in &self.params {
             writeln!(f, "{}", p)?;
         }

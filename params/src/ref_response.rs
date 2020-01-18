@@ -61,7 +61,12 @@ impl<P: AsRef<[Parameter]>> RefResponse<P> {
 
 impl<P: AsRef<[Parameter]>> fmt::Display for RefResponse<P> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        writeln!(f, "RefResponse {{ op: {} }}", self.op())?;
+        writeln!(
+            f,
+            "RefResponse {{ nid: {} op: {} }}",
+            self.node_id,
+            self.op()
+        )?;
         for p in self.params.as_ref().iter() {
             writeln!(f, "{}", p)?;
         }
