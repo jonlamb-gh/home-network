@@ -12,7 +12,7 @@ pub use crate::parameter::Parameter;
 pub use crate::ref_response::RefResponse;
 pub use crate::request::Request;
 pub use crate::response::Response;
-pub use crate::value::Value as ParameterValue;
+pub use crate::value::{TypeId as ParameterValueTypeId, Value as ParameterValue};
 pub use crate::wire::getset::Frame as GetSetFrame;
 pub use crate::wire::parameter::Packet as ParameterPacket;
 pub use crate::wire::parameter_id_list::Packet as ParameterIdListPacket;

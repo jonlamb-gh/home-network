@@ -1,4 +1,6 @@
+use crate::Error;
 use core::fmt;
+use core::str;
 
 #[derive(Copy, Clone, PartialEq, PartialOrd, Debug)]
 pub enum Value {
@@ -41,7 +43,7 @@ impl fmt::Display for Value {
 // TODO - cleanup this pattern
 // Value prefixed with u8 type ID on the wire
 #[derive(Copy, Clone, PartialEq, PartialOrd, Debug)]
-pub(crate) enum TypeId {
+pub enum TypeId {
     None = 0,
     Notification = 1,
     Bool = 2,
@@ -51,13 +53,35 @@ pub(crate) enum TypeId {
     F32 = 6,
 }
 
+impl str::FromStr for TypeId {
+    type Err = Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if s == "None" || s == "none" {
+            Ok(TypeId::None)
+        } else if s == "Notification" || s == "notif" {
+            Ok(TypeId::Notification)
+        } else if s == "Bool" || s == "bool" {
+            Ok(TypeId::Bool)
+        } else if s == "U8" || s == "u8" {
+            Ok(TypeId::U8)
+        } else if s == "U32" || s == "u32" {
+            Ok(TypeId::U32)
+        } else if s == "F32" || s == "f32" {
+            Ok(TypeId::F32)
+        } else {
+            Err(Error::ParseValue)
+        }
+    }
+}
+
 impl TypeId {
-    pub(crate) fn as_u8(&self) -> u8 {
+    pub fn as_u8(&self) -> u8 {
         *self as u8
     }
 
     // Size of the value field on the ire
-    pub(crate) fn wire_size(&self) -> usize {
+    pub fn wire_size(&self) -> usize {
         match *self {
             TypeId::None => 0,
             TypeId::Notification => 0,

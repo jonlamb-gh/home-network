@@ -63,8 +63,12 @@ impl Params {
     // TODO
     // get_broadcast() -> []
     // get_read_only()
-    pub fn get(&self, id: ParameterId) -> Option<ParameterValue> {
-        self.params.iter().find(|p| p.id() == id).map(|p| p.value())
+    pub fn get(&self, id: ParameterId) -> Option<&Parameter> {
+        self.params.iter().find(|p| p.id() == id)
+    }
+
+    pub fn get_value(&self, id: ParameterId) -> Option<ParameterValue> {
+        self.get(id).map(|p| p.value())
     }
 
     pub fn set(&mut self, id: ParameterId, value: ParameterValue) -> Result<(), Error> {

@@ -56,6 +56,14 @@ impl Request {
         self.params.pop()
     }
 
+    pub fn ids(&self) -> &[ParameterId] {
+        &self.ids
+    }
+
+    pub fn parameters(&self) -> &[Parameter] {
+        &self.params
+    }
+
     pub fn clear(&mut self) {
         self.ids.clear();
         self.params.clear();

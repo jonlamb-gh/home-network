@@ -1,23 +1,26 @@
 use log::info;
 use params::{
-    GetSetFlags, GetSetFrame, GetSetOp, GetSetPayloadType, Request, Response, NODE_ID_ANONYMOUS,
+    GetSetFlags, GetSetFrame, GetSetOp, GetSetPayloadType, Parameter, ParameterFlags, ParameterId,
+    ParameterValue, Request, Response, NODE_ID_ANONYMOUS,
 };
 use std::io;
 use std::io::prelude::*;
 use std::net::SocketAddr;
 use std::net::TcpStream;
 
-pub fn list_all(address: SocketAddr) -> io::Result<()> {
-    info!("Listing all parameters at {}", address);
+pub fn set(address: SocketAddr, id: ParameterId, value: ParameterValue) -> io::Result<()> {
+    info!("Set parameter ID {} Value {} at {}", id, value, address);
     let mut buf: Vec<u8> = vec![0; 1500];
 
     let mut frame = GetSetFrame::new_unchecked(&mut buf[..]);
-    let req = Request::new(
+    let mut req = Request::new(
         NODE_ID_ANONYMOUS,
         GetSetFlags::default(),
-        GetSetOp::ListAll,
-        GetSetPayloadType::None,
+        GetSetOp::Set,
+        GetSetPayloadType::ParameterListPacket,
     );
+    let p = Parameter::new_with_value(id, ParameterFlags::default(), value);
+    req.push_parameter(p).unwrap();
     req.emit(&mut frame).unwrap();
     let wire_size = req.wire_size();
 

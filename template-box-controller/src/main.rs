@@ -15,10 +15,10 @@ use lib::logger::Logger;
 use lib::net::eth::{Eth, MTU, NEIGHBOR_CACHE_SIZE, SOCKET_BUFFER_SIZE};
 use lib::params::{pop_event, push_event, Params};
 use lib::sys_clock;
-use log::{debug, info, LevelFilter};
+use log::{debug, info, warn, LevelFilter};
 use params::{
-    GetSetFlags, GetSetFrame, GetSetNodeId, GetSetOp, Parameter, ParameterFlags, ParameterId,
-    ParameterValue, RefResponse,
+    GetSetFlags, GetSetFrame, GetSetNodeId, GetSetOp, GetSetPayloadType, Parameter, ParameterFlags,
+    ParameterId, ParameterValue, RefResponse, Request, Response, PREAMBLE_WORD,
 };
 use smoltcp::iface::{EthernetInterfaceBuilder, NeighborCache, Routes};
 use smoltcp::phy::Device;
@@ -144,6 +144,13 @@ fn main() -> ! {
             ParameterId::new(7),
             ParameterFlags::default(),
             ParameterValue::Bool(false),
+        ))
+        .unwrap();
+    params
+        .add(Parameter::new_with_value(
+            ParameterId::new(8),
+            ParameterFlags::default(),
+            ParameterValue::U32(0),
         ))
         .unwrap();
 
@@ -292,9 +299,10 @@ fn main() -> ! {
             eth.poll(time);
         }
 
+        // TODO - error handling
         // Service TCP server
         if let Ok(bytes_recvd) = eth.recv_tcp_frame(&mut eth_frame_buffer[..]) {
-            if let Ok(frame) = GetSetFrame::new_checked(&mut eth_frame_buffer[..bytes_recvd]) {
+            if let Ok(frame) = GetSetFrame::new_checked(&eth_frame_buffer[..bytes_recvd]) {
                 cortex_m::interrupt::free(|cs| GLOBAL_ETH_PENDING.borrow(cs).replace(true));
                 debug!("Rx {}", frame);
                 match frame.op() {
@@ -314,8 +322,57 @@ fn main() -> ! {
                             eth.send_tcp(&frame.as_ref()[..size]).unwrap();
                         }
                     }
-                    GetSetOp::Get => (),
-                    GetSetOp::Set => (),
+                    GetSetOp::Get
+                        if frame.payload_type() == GetSetPayloadType::ParameterIdListPacket =>
+                    {
+                        let req = Request::parse(&frame).unwrap();
+                        let mut resp =
+                            Response::new(NODE_ID, GetSetFlags::default(), GetSetOp::Get);
+                        for id in req.ids() {
+                            if let Some(p) = params.get(*id) {
+                                resp.push(*p).unwrap();
+                            }
+                        }
+
+                        let mut frame = GetSetFrame::new_unchecked(&mut eth_frame_buffer[..]);
+                        resp.emit(&mut frame).unwrap();
+                        debug!("Tx {}", frame);
+                        let size = resp.wire_size();
+                        eth.send_tcp(&frame.as_ref()[..size]).unwrap();
+                    }
+                    GetSetOp::Set
+                        if frame.payload_type() == GetSetPayloadType::ParameterListPacket =>
+                    {
+                        let req = Request::parse(&frame).unwrap();
+                        let mut resp =
+                            Response::new(NODE_ID, GetSetFlags::default(), GetSetOp::Set);
+                        for p in req.parameters() {
+                            // TODO - callback notification in here somewhere?
+                            if params.set(p.id(), p.value()).is_ok() {
+                                resp.push(*params.get(p.id()).unwrap()).unwrap();
+                            }
+                        }
+
+                        let mut frame = GetSetFrame::new_unchecked(&mut eth_frame_buffer[..]);
+                        resp.emit(&mut frame).unwrap();
+                        debug!("Tx {}", frame);
+                        let size = resp.wire_size();
+                        eth.send_tcp(&frame.as_ref()[..size]).unwrap();
+                    }
+                    op @ _ => {
+                        warn!("Got malformed request {}", frame);
+                        let mut frame = GetSetFrame::new_unchecked(&mut eth_frame_buffer[..]);
+                        frame.set_preamble(PREAMBLE_WORD);
+                        frame.set_node_id(NODE_ID);
+                        frame.set_flags(GetSetFlags::default());
+                        frame.set_version(1);
+                        frame.set_op(op);
+                        frame.set_payload_type(GetSetPayloadType::None);
+                        frame.set_payload_size(0);
+                        debug!("Tx {}", frame);
+                        let size = GetSetFrame::<&[u8]>::header_len();
+                        eth.send_tcp(&frame.as_ref()[..size]).unwrap();
+                    }
                 }
             }
         }
@@ -328,7 +385,11 @@ fn main() -> ! {
             last_sec = sec;
             led_green.toggle().unwrap();
             // TODO
-            push_event((7.into(), ParameterValue::Bool(true)).into()).ok();
+            let inner = match params.get_value(8.into()).unwrap() {
+                ParameterValue::U32(inner) => inner,
+                _ => panic!("Bad value type"),
+            };
+            push_event((8.into(), ParameterValue::U32(inner.wrapping_add(1))).into()).ok();
         }
     }
 }

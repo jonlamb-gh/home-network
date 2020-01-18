@@ -4,6 +4,7 @@ pub enum Error {
     WireIndexOutOfBounds,
     WirePreamble,
     WireInvalidPayloadType,
+    ParseValue,
     Capacity,
     ValueTypeMismatch,
 }
