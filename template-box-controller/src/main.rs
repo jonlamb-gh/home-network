@@ -264,6 +264,7 @@ fn main() -> ! {
     // - wait for link to be up?
     //
     // setup watchdog and parameter to hold last reset condition
+    // make them read-only
     led_blue.set_low().unwrap();
     let mut last_sec = 0;
     loop {

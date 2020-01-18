@@ -20,7 +20,7 @@ lto = true # Better optimizations
 [dependencies]
 cortex-m = "0.6"
 cortex-m-rt = "0.6"
-heapless = "0.5.1"
+heapless = "0.5.2"
 
 [dependencies.params]
 path = "../params/"
