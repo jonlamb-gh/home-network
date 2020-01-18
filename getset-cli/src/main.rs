@@ -20,6 +20,11 @@ enum Command {
         #[structopt(short = "a", long, default_value = "0.0.0.0:9876")]
         address: SocketAddr,
     },
+    ListAll {
+        /// TCP address:port
+        #[structopt(short = "a", long, default_value = "192.168.1.39:9877")]
+        address: SocketAddr,
+    },
 }
 
 fn main() {
@@ -33,5 +38,6 @@ fn main() {
 
     match opts.cmd {
         Command::Listen { address } => getset_cli::start_listening(address).unwrap(),
+        Command::ListAll { address } => getset_cli::list_all(address).unwrap(),
     }
 }

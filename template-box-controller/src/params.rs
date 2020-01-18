@@ -4,6 +4,7 @@ use crate::error::Error;
 use crate::sys_clock;
 use crate::PARAM_EVENT_Q;
 use heapless::Vec;
+use log::debug;
 use params::{MaxParamsPerOp, Parameter, ParameterId, ParameterValue};
 
 pub struct Params {
@@ -36,6 +37,7 @@ impl Params {
     }
 
     pub fn add(&mut self, mut parameter: Parameter) -> Result<(), Error> {
+        debug!("Adding parameter ID {}", parameter.id());
         if self.params.iter().any(|p| p.id() == parameter.id()) {
             Err(Error::Duplicate)
         } else {
