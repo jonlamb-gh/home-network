@@ -1,0 +1,32 @@
+# paramdb.toml
+
+[[node]]
+id = 1
+name = "template_node"
+name = "Template Box Controller Node"
+
+[[parameter]]
+id = 1
+name = "example1"
+desc = "Some param 1"
+ro = true
+bcast = true
+value-type = "bool"
+value = false
+
+[[parameter]]
+id = 2
+name = "example2"
+desc = "Some param desc 2"
+ro = true
+bcast = true
+value-type = "u32"
+value = 1234
+
+[[parameter]]
+id = 2
+name = "example2"
+desc = "Some param desc 2"
+#ro = true
+bcast = true
+value-type = "u32"

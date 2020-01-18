@@ -17,7 +17,8 @@ use lib::params::Params;
 use lib::sys_clock;
 use log::{debug, info, LevelFilter};
 use params::{
-    GetSetFrame, GetSetOp, Parameter, ParameterFlags, ParameterId, ParameterValue, RefResponse,
+    GetSetFlags, GetSetFrame, GetSetNodeId, GetSetOp, Parameter, ParameterFlags, ParameterId,
+    ParameterValue, RefResponse,
 };
 use smoltcp::iface::{EthernetInterfaceBuilder, NeighborCache, Routes};
 use smoltcp::phy::Device;
@@ -33,6 +34,8 @@ const SRC_IP: [u8; 4] = [192, 168, 1, 39];
 
 const UDP_BCAST_IP: Ipv4Address = Ipv4Address::BROADCAST;
 const UDP_BCAST_PORT: u16 = 9876;
+
+const NODE_ID: GetSetNodeId = 2;
 
 // Not sure having these make sense?
 const STATIC_RO_PARAMS: [Parameter; 6] = [
@@ -212,10 +215,15 @@ fn main() -> ! {
         stm32::NVIC::unmask(interrupt::TIM2);
     };
 
+    // TODO - sometimes UDP broadcast data doesn't get recv'd on my host?
+    // have to reset the board
+    // not sure if it's the board or my network/router/etc
+    //
+    // - manage eth.status() (PhyStatus) events
+    // - eth.get_phy() -> Phy, can reset/etc
+    // - wait for link to be up?
     let mut last_sec = 0;
     loop {
-        //TODO
-        // need up update paramer.local_time_ms
         let time = sys_clock::system_time();
 
         // TODO - error handling
@@ -226,7 +234,8 @@ fn main() -> ! {
             let bcast_params = params.get_all_broadcast();
             debug!("bcast ({})", bcast_params.len());
             if bcast_params.len() != 0 {
-                let ref_resp = RefResponse::new(GetSetOp::Get, bcast_params);
+                let ref_resp =
+                    RefResponse::new(NODE_ID, GetSetFlags::default(), GetSetOp::Get, bcast_params);
                 ref_resp.emit(&mut frame).unwrap();
                 let size = ref_resp.wire_size();
                 eth.send_udp_bcast(&frame.as_ref()[..size]).unwrap();
