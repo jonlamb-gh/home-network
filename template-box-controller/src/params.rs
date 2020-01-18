@@ -216,9 +216,10 @@ mod tests {
         );
         let mut params = Params::new();
         assert_eq!(params.add(p), Ok(()));
-        assert_eq!(params.get(p.id()), Some(p.value()));
+        assert_eq!(params.get(p.id()), Some(&p));
+        assert_eq!(params.get_value(p.id()), Some(p.value()));
         assert_eq!(params.set(p.id(), ParameterValue::U8(2)), Ok(()));
-        assert_eq!(params.get(p.id()), Some(ParameterValue::U8(2)));
+        assert_eq!(params.get_value(p.id()), Some(ParameterValue::U8(2)));
     }
 
     #[test]

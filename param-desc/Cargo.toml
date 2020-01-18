@@ -1,0 +1,16 @@
+[package]
+name = "param-desc"
+version = "0.1.0"
+authors = ["Jon Lamb"]
+edition = "2018"
+build = "build.rs"
+
+[dependencies]
+
+[dependencies.params]
+path = "../params/"
+
+[build-dependencies]
+toml = "0.5.6"
+serde = "1.0.97"
+serde_derive = "1.0"
