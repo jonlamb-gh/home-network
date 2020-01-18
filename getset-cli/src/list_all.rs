@@ -1,5 +1,5 @@
 use log::info;
-use params::{GetSetFrame, GetSetOp, GetSetPayloadType, Request};
+use params::{GetSetFrame, GetSetOp, GetSetPayloadType, Request, Response};
 use std::io;
 use std::io::prelude::*;
 use std::net::SocketAddr;
@@ -18,6 +18,17 @@ pub fn list_all(address: SocketAddr) -> io::Result<()> {
 
     info!("Sending {} bytes : {}", wire_size, req);
     stream.write(&buf[..wire_size])?;
+
+    let bytes_read = stream.read(&mut buf[..])?;
+
+    info!("Recv'd {} bytes", bytes_read);
+
+    if let Ok(frame) = GetSetFrame::new_checked(&buf[..bytes_read]) {
+        info!("{}", frame);
+        if let Ok(resp) = Response::parse(&frame) {
+            println!("{}", resp);
+        }
+    }
 
     Ok(())
 }

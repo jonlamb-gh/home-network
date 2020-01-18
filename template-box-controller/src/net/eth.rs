@@ -1,6 +1,7 @@
 use crate::error::Error;
 use crate::time::Instant;
 use log::debug;
+use params::GetSetFrame;
 use smoltcp::iface::EthernetInterface;
 use smoltcp::socket::{SocketHandle, SocketSet, TcpSocket, TcpState, UdpSocket};
 use smoltcp::wire::IpEndpoint;
@@ -64,14 +65,31 @@ impl<'a, 'b, 'c, 'd, 'e, 'f, 'rx, 'tx, 'r> Eth<'a, 'b, 'c, 'd, 'e, 'f, 'rx, 'tx,
     }
 
     // TODO - send/recv TCP data fn's
-    pub fn recv_tcp(&mut self, data: &mut [u8]) -> Result<usize, Error> {
+    pub fn recv_tcp_frame(&mut self, data: &mut [u8]) -> Result<usize, Error> {
         let mut socket = self.sockets.get::<TcpSocket>(self.tcp_handle);
         if socket.may_recv() {
-            let bytes_recvd = socket.recv_slice(data)?;
-            Ok(bytes_recvd)
-        } else {
-            Ok(0)
+            let header_len = GetSetFrame::<&[u8]>::header_len();
+            if socket.recv_queue() >= header_len {
+                let bytes_recvd = socket.peek_slice(&mut data[..header_len])?;
+                if bytes_recvd == header_len {
+                    if let Ok(frame) = GetSetFrame::new_checked(&mut data[..header_len]) {
+                        let frame_size = header_len + usize::from(frame.payload_size());
+                        if socket.recv_queue() >= frame_size {
+                            let bytes_recvd = socket.recv_slice(&mut data[..frame_size])?;
+                            return Ok(bytes_recvd);
+                        }
+                    }
+                }
+            }
         }
+
+        Ok(0)
+    }
+
+    pub fn send_tcp(&mut self, data: &[u8]) -> Result<(), Error> {
+        let mut socket = self.sockets.get::<TcpSocket>(self.tcp_handle);
+        let _ = socket.send_slice(data)?;
+        Ok(())
     }
 
     pub fn poll(&mut self, time: Instant) {

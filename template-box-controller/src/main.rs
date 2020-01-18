@@ -292,13 +292,30 @@ fn main() -> ! {
             eth.poll(time);
         }
 
-        // TODO peeking
         // Service TCP server
-        if let Ok(bytes_recvd) = eth.recv_tcp(&mut eth_frame_buffer[..]) {
-            if bytes_recvd >= GetSetFrame::<&[u8]>::header_len() {
-                debug!("Recvd {} bytes", bytes_recvd);
-                if let Ok(frame) = GetSetFrame::new_checked(&mut eth_frame_buffer[..]) {
-                    debug!("Got {}", frame);
+        if let Ok(bytes_recvd) = eth.recv_tcp_frame(&mut eth_frame_buffer[..]) {
+            if let Ok(frame) = GetSetFrame::new_checked(&mut eth_frame_buffer[..bytes_recvd]) {
+                cortex_m::interrupt::free(|cs| GLOBAL_ETH_PENDING.borrow(cs).replace(true));
+                debug!("Rx {}", frame);
+                match frame.op() {
+                    GetSetOp::ListAll => {
+                        let mut frame = GetSetFrame::new_unchecked(&mut eth_frame_buffer[..]);
+                        let params = params.as_ref();
+                        if params.len() != 0 {
+                            let ref_resp = RefResponse::new(
+                                NODE_ID,
+                                GetSetFlags::default(),
+                                GetSetOp::ListAll,
+                                params,
+                            );
+                            ref_resp.emit(&mut frame).unwrap();
+                            debug!("Tx {}", frame);
+                            let size = ref_resp.wire_size();
+                            eth.send_tcp(&frame.as_ref()[..size]).unwrap();
+                        }
+                    }
+                    GetSetOp::Get => (),
+                    GetSetOp::Set => (),
                 }
             }
         }
