@@ -21,6 +21,10 @@ impl Flags {
         Flags(0x01)
     }
 
+    pub const fn new_broadcast() -> Self {
+        Flags(0x02)
+    }
+
     pub const fn new_read_only_broadcast() -> Self {
         Flags(0x01 | 0x02)
     }

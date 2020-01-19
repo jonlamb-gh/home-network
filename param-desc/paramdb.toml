@@ -13,7 +13,7 @@ desc = "Template Box Controller Node"
 [[parameter]]
 id = 1
 name = "example1"
-desc = "Some param 1"
+desc = "Some param desc 1"
 ro = true
 bcast = true
 value_type = "bool"
@@ -24,14 +24,21 @@ id = 2
 name = "example2"
 desc = "Some param desc 2"
 ro = true
-bcast = true
+#bcast = true
 value_type = "u32"
 value = "1234"
 
 [[parameter]]
-id = 2
-name = "example2"
-desc = "Some param desc 2"
+id = 3
+name = "example3"
+desc = "Some param desc 3"
 #ro = true
 bcast = true
 value_type = "u32"
+value = "0"
+
+[[parameter]]
+id = 4
+name = "example4"
+desc = "Some param desc 4"
+value_type = "notif"

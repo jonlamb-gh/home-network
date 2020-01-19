@@ -18,6 +18,9 @@ desc/str's in another
 
 so the embedded stuff can not import the str's?
 
+
+uptime/etc
+
 ...
 
 zones?

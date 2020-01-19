@@ -5,7 +5,7 @@ assert_eq_size!(u32, Id);
 
 // TODO - NonZero?
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Default)]
-pub struct Id(u32);
+pub struct Id(pub u32);
 
 impl Id {
     pub const fn new(id: u32) -> Self {
