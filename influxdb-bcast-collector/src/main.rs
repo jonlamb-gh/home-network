@@ -1,36 +1,35 @@
-use influx_db_client::{Client, Point, Points, Precision, Value};
+use log::Level;
+use std::net::SocketAddr;
+use structopt::StructOpt;
 
-// key == param.name
-// field == param.value
-// field.name = param.desc? or add a units/field-name toml?
-//
-// tags for node_id, zone, others?
-// node.desc
-//
-// TODO
-//
-// measurement: param.id | "param.name"
-// fields:
-//   * "value" : param.value
-// tags:
-//   group by things?
-//   * node_id | "node.name"
+// TODO - user/pass for auth
+#[derive(Debug, StructOpt)]
+#[structopt(about = "TODO Todo.")]
+struct CLIOptions {
+    #[structopt(short = "v", long = "verbose")]
+    verbose: bool,
+
+    /// UDP address:port
+    #[structopt(short = "a", long, default_value = "0.0.0.0:9876")]
+    address: SocketAddr,
+
+    /// Database client address:port
+    #[structopt(short = "c", long, default_value = "http://localhost:8086")]
+    client: String,
+
+    /// Database name
+    #[structopt(short = "d", long, default_value = "parameters")]
+    database: String,
+}
+
 fn main() {
-    let client = Client::new("http://localhost:8086", "parameters");
-    //.set_authentication("root", "root");
+    let opts = CLIOptions::from_args();
 
-    client.create_database("parameters").unwrap();
-
-    for t_sec in 1..=10 {
-        let mut point = Point::new("uptime");
-        point.timestamp = Some(t_sec as i64);
-
-        point.add_field("value", Value::Integer(t_sec as _));
-        point.add_tag("node_id", Value::String("template_node1".into()));
-
-        // if Precision is None, the default is second
-        client
-            .write_point(point, Some(Precision::Seconds), None)
-            .unwrap();
+    if opts.verbose {
+        simple_logger::init_with_level(Level::Info).unwrap();
+    } else {
+        simple_logger::init_with_level(Level::Warn).unwrap();
     }
+
+    influxdb_bcast_collector::start_listening(opts.address, opts.client, opts.database).unwrap();
 }

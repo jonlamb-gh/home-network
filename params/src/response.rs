@@ -38,6 +38,10 @@ impl Response {
         self.params.pop()
     }
 
+    pub fn parameters(&self) -> &[Parameter] {
+        &self.params
+    }
+
     pub fn clear(&mut self) {
         self.params.clear();
     }

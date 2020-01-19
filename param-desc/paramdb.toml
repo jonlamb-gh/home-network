@@ -37,6 +37,15 @@ value_type = "u32"
 value = "0"
 
 [[parameter]]
+id = 201
+name = "temperature"
+desc = "Some temp degrees F"
+#ro = true
+bcast = true
+value_type = "f32"
+value = "0.0"
+
+[[parameter]]
 id = 300
 name = "led_state"
 desc = "Red LED state"

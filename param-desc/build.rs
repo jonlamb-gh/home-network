@@ -17,8 +17,10 @@ fn main() {
 
     let toml = src_dir.join("paramdb.toml");
     let node_id_gen = out_dir.join("node_id_gen.rs");
+    let node_name_gen = out_dir.join("node_name_gen.rs");
     let node_desc_gen = out_dir.join("node_desc_gen.rs");
     let param_id_gen = out_dir.join("param_id_gen.rs");
+    let param_name_gen = out_dir.join("param_name_gen.rs");
     let param_desc_gen = out_dir.join("param_desc_gen.rs");
     let param_gen = out_dir.join("param_gen.rs");
 
@@ -37,8 +39,9 @@ fn main() {
         assert!(has_unique_elements(ids));
     });
 
-    // Generate node ID/desc
+    // Generate node ID/desc/name
     let mut node_id_gen_file = File::create(node_id_gen).unwrap();
+    let mut node_name_gen_file = File::create(node_name_gen).unwrap();
     let mut node_desc_gen_file = File::create(node_desc_gen).unwrap();
 
     desc.node.as_ref().map(|nodes| {
@@ -69,8 +72,28 @@ match id {
     node_desc_gen_file.write_all(b"_ => None,\n").unwrap();
     node_desc_gen_file.write_all(b"}}\n").unwrap();
 
-    // Generate parameter ID/desc
+    node_name_gen_file
+        .write_all(
+            r#"
+pub fn node_name(id: GetSetNodeId) -> Option<&'static str> {
+match id {
+"#
+            .as_bytes(),
+        )
+        .unwrap();
+    desc.node.as_ref().map(|nodes| {
+        nodes.iter().for_each(|n| {
+            node_name_gen_file
+                .write_all(format!("{} => Some(\"{}\"),\n", n.id, n.name).as_bytes())
+                .unwrap()
+        })
+    });
+    node_name_gen_file.write_all(b"_ => None,\n").unwrap();
+    node_name_gen_file.write_all(b"}}\n").unwrap();
+
+    // Generate parameter ID/name/desc
     let mut param_id_gen_file = File::create(param_id_gen).unwrap();
+    let mut param_name_gen_file = File::create(param_name_gen).unwrap();
     let mut param_desc_gen_file = File::create(param_desc_gen).unwrap();
 
     desc.parameter.as_ref().map(|params| {
@@ -100,6 +123,25 @@ match id.0 {
     });
     param_desc_gen_file.write_all(b"_ => None,\n").unwrap();
     param_desc_gen_file.write_all(b"}}\n").unwrap();
+
+    param_name_gen_file
+        .write_all(
+            r#"
+pub fn param_name(id: ParameterId) -> Option<&'static str> {
+match id.0 {
+"#
+            .as_bytes(),
+        )
+        .unwrap();
+    desc.parameter.as_ref().map(|params| {
+        params.iter().for_each(|p| {
+            param_name_gen_file
+                .write_all(format!("{} => Some(\"{}\"),\n", p.id, p.name).as_bytes())
+                .unwrap();
+        })
+    });
+    param_name_gen_file.write_all(b"_ => None,\n").unwrap();
+    param_name_gen_file.write_all(b"}}\n").unwrap();
 
     // Generate parameter consts
     let mut param_gen_file = File::create(param_gen).unwrap();
@@ -194,7 +236,7 @@ impl ParamDesc {
                 i32::from_str(self.value.as_ref().unwrap()).unwrap()
             )),
             ParameterValueTypeId::F32 => String::from(format!(
-                "ParameterValue::F32({})",
+                "ParameterValue::F32({}_f32)",
                 f32::from_str(self.value.as_ref().unwrap()).unwrap()
             )),
         };

@@ -41,10 +41,11 @@ const TCP_SERVER_PORT: u16 = 9877;
 
 const NODE_ID: GetSetNodeId = TEMPLATE_NODE1;
 
-const PARAMETERS: [&'static Parameter; 3] = [
+const PARAMETERS: [&'static Parameter; 4] = [
     &param::UPTIME,
     &param::ETH_LINK_DOWN_COUNT,
     &param::LED_STATE,
+    &param::TEMPERATURE,
 ];
 
 static GLOBAL_LOGGER: Logger = Logger::new();
@@ -369,6 +370,12 @@ fn main() -> ! {
                 _ => panic!("Bad value type"),
             };
             push_event((param_id::UPTIME, ParameterValue::U32(inner.wrapping_add(1))).into()).ok();
+
+            let inner = match params.get_value(param_id::TEMPERATURE).unwrap() {
+                ParameterValue::F32(inner) => inner,
+                _ => panic!("Bad value type"),
+            };
+            push_event((param_id::TEMPERATURE, ParameterValue::F32(inner + 0.1)).into()).ok();
         }
     }
 }
