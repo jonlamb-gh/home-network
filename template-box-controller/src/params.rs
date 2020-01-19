@@ -71,12 +71,19 @@ impl Params {
         self.get(id).map(|p| p.value())
     }
 
-    pub fn set(&mut self, id: ParameterId, value: ParameterValue) -> Result<(), Error> {
+    pub fn set(
+        &mut self,
+        id: ParameterId,
+        value: ParameterValue,
+        allow_ro: bool,
+    ) -> Result<(), Error> {
         self.params
             .iter_mut()
             .find(|p| p.id() == id)
             .map_or(Err(Error::NotFound), |p| {
-                if p.flags().read_only() {
+                if !allow_ro && p.flags().read_only() {
+                    Err(Error::PermissionDenied)
+                } else if p.flags().constant() {
                     Err(Error::PermissionDenied)
                 } else {
                     p.set_value(value)?;
@@ -95,7 +102,9 @@ impl Params {
     // static Event Q in main, deq. and call update/process_event?
     // wrapper methods to push_event() can be used anywhere
     pub fn process_event(&mut self, event: Event) -> Result<(), Error> {
-        self.set(event.id, event.value)
+        // This path used by the application to update, it can update read-only (but not
+        // const)
+        self.set(event.id, event.value, true)
     }
 
     pub fn get_all_broadcast(&self) -> &[Parameter] {
@@ -173,7 +182,7 @@ mod tests {
         let id = ParameterId::new(1);
         let value = ParameterValue::U8(2);
         let mut params = Params::new();
-        assert_eq!(params.set(id, value), Err(Error::NotFound));
+        assert_eq!(params.set(id, value, false), Err(Error::NotFound));
         assert_eq!(params.params.len(), 0);
     }
 
@@ -187,7 +196,28 @@ mod tests {
         let mut params = Params::new();
         assert_eq!(params.add(p), Ok(()));
         assert_eq!(
-            params.set(p.id(), ParameterValue::U8(2)),
+            params.set(p.id(), ParameterValue::U8(2), false),
+            Err(Error::PermissionDenied)
+        );
+        // allow_ro = true, app can change read-only
+        assert_eq!(params.set(p.id(), ParameterValue::U8(2), true), Ok(()));
+    }
+
+    #[test]
+    fn set_constant_error() {
+        let p = Parameter::new_with_value(
+            ParameterId::new(1),
+            ParameterFlags::new_from_flags(params::flags::CONST),
+            ParameterValue::U8(123),
+        );
+        let mut params = Params::new();
+        assert_eq!(params.add(p), Ok(()));
+        assert_eq!(
+            params.set(p.id(), ParameterValue::U8(2), false),
+            Err(Error::PermissionDenied)
+        );
+        assert_eq!(
+            params.set(p.id(), ParameterValue::U8(2), true),
             Err(Error::PermissionDenied)
         );
     }
@@ -202,7 +232,7 @@ mod tests {
         let mut params = Params::new();
         assert_eq!(params.add(p), Ok(()));
         assert_eq!(
-            params.set(p.id(), ParameterValue::Bool(false)),
+            params.set(p.id(), ParameterValue::Bool(false), false),
             Err(Error::ParamsError(params::Error::ValueTypeMismatch))
         );
     }
@@ -218,7 +248,7 @@ mod tests {
         assert_eq!(params.add(p), Ok(()));
         assert_eq!(params.get(p.id()), Some(&p));
         assert_eq!(params.get_value(p.id()), Some(p.value()));
-        assert_eq!(params.set(p.id(), ParameterValue::U8(2)), Ok(()));
+        assert_eq!(params.set(p.id(), ParameterValue::U8(2), false), Ok(()));
         assert_eq!(params.get_value(p.id()), Some(ParameterValue::U8(2)));
     }
 

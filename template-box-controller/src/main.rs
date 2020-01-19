@@ -16,9 +16,10 @@ use lib::net::eth::{Eth, MTU, NEIGHBOR_CACHE_SIZE, SOCKET_BUFFER_SIZE};
 use lib::params::{pop_event, push_event, Params};
 use lib::sys_clock;
 use log::{debug, info, warn, LevelFilter};
+use param_desc::{node_id::TEMPLATE_NODE1, param, param_id};
 use params::{
-    GetSetFlags, GetSetFrame, GetSetNodeId, GetSetOp, GetSetPayloadType, Parameter, ParameterFlags,
-    ParameterId, ParameterValue, RefResponse, Request, Response, PREAMBLE_WORD,
+    GetSetFlags, GetSetFrame, GetSetNodeId, GetSetOp, GetSetPayloadType, Parameter, ParameterValue,
+    RefResponse, Request, Response, PREAMBLE_WORD,
 };
 use smoltcp::iface::{EthernetInterfaceBuilder, NeighborCache, Routes};
 use smoltcp::phy::Device;
@@ -38,40 +39,12 @@ const UDP_BCAST_PORT: u16 = 9876;
 const TCP_SERVER_IP: Ipv4Address = Ipv4Address(SRC_IP);
 const TCP_SERVER_PORT: u16 = 9877;
 
-const NODE_ID: GetSetNodeId = 2;
+const NODE_ID: GetSetNodeId = TEMPLATE_NODE1;
 
-// Not sure having these make sense?
-const STATIC_RO_PARAMS: [Parameter; 6] = [
-    Parameter::new_with_value(
-        ParameterId::new(1),
-        ParameterFlags::new_read_only_broadcast(),
-        ParameterValue::Notification,
-    ),
-    Parameter::new_with_value(
-        ParameterId::new(2),
-        ParameterFlags::new_read_only_broadcast(),
-        ParameterValue::Bool(false),
-    ),
-    Parameter::new_with_value(
-        ParameterId::new(3),
-        ParameterFlags::new_read_only_broadcast(),
-        ParameterValue::U8(123),
-    ),
-    Parameter::new_with_value(
-        ParameterId::new(4),
-        ParameterFlags::new_read_only_broadcast(),
-        ParameterValue::U32(3456),
-    ),
-    Parameter::new_with_value(
-        ParameterId::new(5),
-        ParameterFlags::new_read_only_broadcast(),
-        ParameterValue::I32(-123),
-    ),
-    Parameter::new_with_value(
-        ParameterId::new(6),
-        ParameterFlags::new_read_only_broadcast(),
-        ParameterValue::F32(-1.234),
-    ),
+const PARAMETERS: [&'static Parameter; 3] = [
+    &param::UPTIME,
+    &param::ETH_LINK_DOWN_COUNT,
+    &param::LED_STATE,
 ];
 
 static GLOBAL_LOGGER: Logger = Logger::new();
@@ -134,25 +107,9 @@ fn main() -> ! {
 
     debug!("Setup parameters");
     let mut params = Params::new();
-    for p in &STATIC_RO_PARAMS {
-        params.add(*p).unwrap();
+    for p in &PARAMETERS {
+        params.add(**p).unwrap();
     }
-
-    // Runtime parameters
-    params
-        .add(Parameter::new_with_value(
-            ParameterId::new(7),
-            ParameterFlags::default(),
-            ParameterValue::Bool(false),
-        ))
-        .unwrap();
-    params
-        .add(Parameter::new_with_value(
-            ParameterId::new(8),
-            ParameterFlags::default(),
-            ParameterValue::U32(0),
-        ))
-        .unwrap();
 
     debug!("Setup Ethernet");
     stm32_eth::setup_pins(
@@ -299,6 +256,15 @@ fn main() -> ! {
             eth.poll(time);
         }
 
+        // Handle initial setup from params
+        match params.get_value(param_id::LED_STATE).unwrap() {
+            ParameterValue::Bool(inner) => match inner {
+                true => led_red.set_high().unwrap(),
+                false => led_red.set_low().unwrap(),
+            },
+            _ => panic!("Bad value type"),
+        }
+
         // TODO - error handling
         // Service TCP server
         if let Ok(bytes_recvd) = eth.recv_tcp_frame(&mut eth_frame_buffer[..]) {
@@ -348,8 +314,21 @@ fn main() -> ! {
                             Response::new(NODE_ID, GetSetFlags::default(), GetSetOp::Set);
                         for p in req.parameters() {
                             // TODO - callback notification in here somewhere?
-                            if params.set(p.id(), p.value()).is_ok() {
+                            if params.set(p.id(), p.value(), false).is_ok() {
                                 resp.push(*params.get(p.id()).unwrap()).unwrap();
+
+                                // TODO - make this pattern better
+                                // as_bool()/etc on value?
+                                match p.id() {
+                                    param_id::LED_STATE => match p.value() {
+                                        ParameterValue::Bool(inner) => match inner {
+                                            true => led_red.set_high().unwrap(),
+                                            false => led_red.set_low().unwrap(),
+                                        },
+                                        _ => (),
+                                    },
+                                    _ => (),
+                                }
                             }
                         }
 
@@ -385,11 +364,11 @@ fn main() -> ! {
             last_sec = sec;
             led_green.toggle().unwrap();
             // TODO
-            let inner = match params.get_value(8.into()).unwrap() {
+            let inner = match params.get_value(param_id::UPTIME).unwrap() {
                 ParameterValue::U32(inner) => inner,
                 _ => panic!("Bad value type"),
             };
-            push_event((8.into(), ParameterValue::U32(inner.wrapping_add(1))).into()).ok();
+            push_event((param_id::UPTIME, ParameterValue::U32(inner.wrapping_add(1))).into()).ok();
         }
     }
 }

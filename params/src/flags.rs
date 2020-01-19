@@ -4,12 +4,20 @@ use static_assertions::assert_eq_size;
 
 assert_eq_size!(u32, Flags);
 
+pub const RO: u32 = 1 << 0;
+pub const BCAST: u32 = 1 << 1;
+pub const CONST: u32 = 1 << 2;
+
 bitfield! {
     #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Default)]
     pub struct Flags(u32);
     u32;
+    /// The parameter is externally read-only
     pub read_only, set_read_only : 0;
+    /// The parameter will be periodically broadcasted
     pub broadcast, set_broadcast: 1;
+    /// The parameter is internally read-only/constant
+    pub constant, set_constant: 2;
 }
 
 impl Flags {
@@ -17,16 +25,20 @@ impl Flags {
         Flags(0)
     }
 
+    pub const fn new_from_flags(flags: u32) -> Self {
+        Flags(flags)
+    }
+
     pub const fn new_read_only() -> Self {
-        Flags(0x01)
+        Flags(RO)
     }
 
     pub const fn new_broadcast() -> Self {
-        Flags(0x02)
+        Flags(BCAST)
     }
 
     pub const fn new_read_only_broadcast() -> Self {
-        Flags(0x01 | 0x02)
+        Flags(RO | BCAST)
     }
 
     pub fn wire_size(&self) -> usize {
@@ -63,6 +75,15 @@ mod tests {
         assert_eq!(f.0, 0);
         f.set_read_only(true);
         assert_eq!(f, ro);
+    }
+
+    #[test]
+    fn const_broadcast() {
+        let bcast = Flags::new_broadcast();
+        let mut f = Flags::default();
+        assert_eq!(f.0, 0);
+        f.set_broadcast(true);
+        assert_eq!(f, bcast);
     }
 
     #[test]

@@ -133,6 +133,7 @@ struct ParamDesc {
     value: Option<String>,
     ro: Option<bool>,
     bcast: Option<bool>,
+    constant: Option<bool>,
 }
 
 impl NodeDesc {
@@ -200,13 +201,14 @@ impl ParamDesc {
 
         let ro = self.ro.unwrap_or(false);
         let bcast = self.bcast.unwrap_or(false);
+        let constant = self.constant.unwrap_or(false);
 
-        let flags = match (ro, bcast) {
-            (true, true) => String::from("ParameterFlags::new_read_only_broadcast()"),
-            (true, false) => String::from("ParameterFlags::new_read_only()"),
-            (false, true) => String::from("ParameterFlags::new_broadcast()"),
-            (false, false) => String::from("ParameterFlags::new()"),
-        };
+        let flags = String::from(format!(
+            "ParameterFlags::new_from_flags({} | {} | {})",
+            if ro { "RO" } else { "0" },
+            if bcast { "BCAST" } else { "0" },
+            if constant { "CONST" } else { "0" },
+        ));
 
         format!(
             r#"

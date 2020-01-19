@@ -16,26 +16,34 @@ desc = "Template Box Controller Node"
 ip = "192.168.1.2"
 
 [[parameter]]
-id = 100
-name = "uptime"
-desc = "System uptime, seconds"
+id = 1
+name = "example1"
+desc = "Some param desc 1"
 ro = true
 bcast = true
-value_type = "u32"
-value = "0"
-
-[[parameter]]
-id = 200
-name = "eth_link_down_count"
-desc = "Ethernet link-down counter"
-ro = true
-bcast = true
-value_type = "u32"
-value = "0"
-
-[[parameter]]
-id = 300
-name = "led_state"
-desc = "Red LED state"
 value_type = "bool"
-value = "true"
+value = "false"
+
+[[parameter]]
+id = 2
+name = "example2"
+desc = "Some param desc 2"
+ro = true
+#bcast = true
+value_type = "u32"
+value = "1234"
+
+[[parameter]]
+id = 3
+name = "example3"
+desc = "Some param desc 3"
+#ro = true
+bcast = true
+value_type = "u32"
+value = "0"
+
+[[parameter]]
+id = 4
+name = "example4"
+desc = "Some param desc 4"
+value_type = "notif"

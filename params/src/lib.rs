@@ -19,7 +19,7 @@ pub use crate::wire::parameter_id_list::Packet as ParameterIdListPacket;
 pub use crate::wire::parameter_list::Packet as ParameterListPacket;
 
 mod error;
-mod flags;
+pub mod flags;
 mod getset;
 mod id;
 mod parameter;
