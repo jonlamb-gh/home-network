@@ -1,0 +1,25 @@
+[package]
+name = "influxdb-bcast-collector"
+version = "0.1.0"
+authors = ["Jon Lamb"]
+edition = "2018"
+
+[lib]
+name = "influxdb_bcast_collector"
+path = "src/lib.rs"
+
+[[bin]]
+name = "influxdb-bcast-collector"
+path = "src/main.rs"
+
+[dependencies]
+structopt = "0.3.7"
+log = "0.4.8"
+simple_logger = "1.4.0"
+influx_db_client = "0.3.6"
+
+[dependencies.params]
+path = "../params/"
+
+[dependencies.param-desc]
+path = "../param-desc/"

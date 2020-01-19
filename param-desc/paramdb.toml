@@ -14,6 +14,9 @@ id = 2
 name = "template_node2"
 desc = "Template Box Controller Node"
 ip = "192.168.1.2"
+# Won't be monitored in grafana/etc
+ignore = true
+# zone?
 
 [[parameter]]
 id = 100

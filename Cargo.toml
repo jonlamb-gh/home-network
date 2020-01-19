@@ -3,6 +3,7 @@ members = [
     "params",
     "param-desc",
     "getset-cli",
+    "influxdb-bcast-collector",
 ]
 
 exclude = [
