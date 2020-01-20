@@ -1,3 +1,6 @@
+// TODO - refactor this impl
+// reduce the types, add a str/string type?
+
 use crate::Error;
 use core::fmt;
 use core::str;
@@ -21,8 +24,43 @@ impl Default for Value {
 }
 
 impl Value {
-    pub(crate) fn type_id(&self) -> TypeId {
+    pub fn type_id(&self) -> TypeId {
         TypeId::from(*self)
+    }
+
+    pub fn as_bool(&self) -> bool {
+        match *self {
+            Value::Bool(v) => v,
+            _ => panic!("Value type mismatch"),
+        }
+    }
+
+    pub fn as_u8(&self) -> u8 {
+        match *self {
+            Value::U8(v) => v,
+            _ => panic!("Value type mismatch"),
+        }
+    }
+
+    pub fn as_u32(&self) -> u32 {
+        match *self {
+            Value::U32(v) => v,
+            _ => panic!("Value type mismatch"),
+        }
+    }
+
+    pub fn as_i32(&self) -> i32 {
+        match *self {
+            Value::I32(v) => v,
+            _ => panic!("Value type mismatch"),
+        }
+    }
+
+    pub fn as_f32(&self) -> f32 {
+        match *self {
+            Value::F32(v) => v,
+            _ => panic!("Value type mismatch"),
+        }
     }
 }
 
@@ -126,6 +164,7 @@ impl From<Value> for TypeId {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use approx::*;
     use core::mem;
 
     #[test]
@@ -151,5 +190,23 @@ mod tests {
             TypeId::from(Value::F32(-1.234)).wire_size(),
             mem::size_of::<f32>()
         );
+    }
+
+    #[test]
+    fn inner_types() {
+        let val = Value::Bool(true);
+        assert_eq!(true, val.as_bool());
+
+        let val = Value::U8(123);
+        assert_eq!(123, val.as_u8());
+
+        let val = Value::U32(12345);
+        assert_eq!(12345, val.as_u32());
+
+        let val = Value::I32(-123);
+        assert_eq!(-123, val.as_i32());
+
+        let val = Value::F32(-1.23);
+        assert_relative_eq!(-1.23, val.as_f32());
     }
 }

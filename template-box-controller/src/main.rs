@@ -219,6 +219,12 @@ fn main() -> ! {
         stm32::NVIC::unmask(interrupt::TIM3);
     };
 
+    // Handle initial setup from params
+    match params.get_value(param_id::LED_STATE).unwrap().as_bool() {
+        true => led_red.set_high().unwrap(),
+        false => led_red.set_low().unwrap(),
+    }
+
     // TODO - sometimes UDP broadcast data doesn't get recv'd on my host?
     // have to reset the board
     // not sure if it's the board or my network/router/etc
@@ -230,6 +236,9 @@ fn main() -> ! {
     //
     // setup watchdog and parameter to hold last reset condition
     // make them read-only
+    //
+    // make a path for forcing bcast to pending when something changes?
+    // then no rate limit exist?
     led_blue.set_low().unwrap();
     let mut last_sec = 0;
     loop {
@@ -255,15 +264,6 @@ fn main() -> ! {
             cortex_m::interrupt::free(|cs| GLOBAL_ETH_PENDING.borrow(cs).replace(false));
         if eth_pending || param_bcast_pending {
             eth.poll(time);
-        }
-
-        // Handle initial setup from params
-        match params.get_value(param_id::LED_STATE).unwrap() {
-            ParameterValue::Bool(inner) => match inner {
-                true => led_red.set_high().unwrap(),
-                false => led_red.set_low().unwrap(),
-            },
-            _ => panic!("Bad value type"),
         }
 
         // TODO - error handling
@@ -321,12 +321,9 @@ fn main() -> ! {
                                 // TODO - make this pattern better
                                 // as_bool()/etc on value?
                                 match p.id() {
-                                    param_id::LED_STATE => match p.value() {
-                                        ParameterValue::Bool(inner) => match inner {
-                                            true => led_red.set_high().unwrap(),
-                                            false => led_red.set_low().unwrap(),
-                                        },
-                                        _ => (),
+                                    param_id::LED_STATE => match p.value().as_bool() {
+                                        true => led_red.set_high().unwrap(),
+                                        false => led_red.set_low().unwrap(),
                                     },
                                     _ => (),
                                 }
@@ -364,17 +361,12 @@ fn main() -> ! {
         if sec != last_sec {
             last_sec = sec;
             led_green.toggle().unwrap();
+
             // TODO
-            let inner = match params.get_value(param_id::UPTIME).unwrap() {
-                ParameterValue::U32(inner) => inner,
-                _ => panic!("Bad value type"),
-            };
+            let inner = params.get_value(param_id::UPTIME).unwrap().as_u32();
             push_event((param_id::UPTIME, ParameterValue::U32(inner.wrapping_add(1))).into()).ok();
 
-            let inner = match params.get_value(param_id::TEMPERATURE).unwrap() {
-                ParameterValue::F32(inner) => inner,
-                _ => panic!("Bad value type"),
-            };
+            let inner = params.get_value(param_id::TEMPERATURE).unwrap().as_f32();
             push_event((param_id::TEMPERATURE, ParameterValue::F32(inner + 0.1)).into()).ok();
         }
     }

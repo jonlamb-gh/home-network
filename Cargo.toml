@@ -7,5 +7,6 @@ members = [
 ]
 
 exclude = [
+    "grafana",
     "template-box-controller",
 ]
