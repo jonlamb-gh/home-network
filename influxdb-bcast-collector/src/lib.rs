@@ -7,6 +7,8 @@ use std::io;
 use std::net::SocketAddr;
 use std::net::UdpSocket;
 
+// TODO - should precision be set to seconds or ms?
+// should local_time_ms be another tag/field?
 pub fn start_listening(address: SocketAddr, client: String, db: String) -> io::Result<()> {
     info!("Setup client at {}, database '{}'", client, db);
 

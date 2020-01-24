@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+
+set -e
+
+cargo clean
+
+(
+    cd template-box-controller/
+    cargo clean
+)
+
+exit 0
