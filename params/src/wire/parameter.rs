@@ -86,8 +86,11 @@ impl<T: AsRef<[u8]>> Packet<T> {
             TypeId::Notification => ParameterValue::Notification,
             TypeId::Bool => ParameterValue::Bool(data[field::VALUE.start] != 0),
             TypeId::U8 => ParameterValue::U8(data[field::VALUE.start]),
+            TypeId::I8 => ParameterValue::I8(data[field::VALUE.start] as _),
             TypeId::U32 => ParameterValue::U32(LittleEndian::read_u32(&data[field::VALUE])),
             TypeId::I32 => ParameterValue::I32(LittleEndian::read_i32(&data[field::VALUE])),
+            TypeId::U64 => ParameterValue::U64(LittleEndian::read_u64(&data[field::VALUE])),
+            TypeId::I64 => ParameterValue::I64(LittleEndian::read_i64(&data[field::VALUE])),
             TypeId::F32 => ParameterValue::F32(LittleEndian::read_f32(&data[field::VALUE])),
         }
     }
@@ -125,8 +128,13 @@ impl<T: AsRef<[u8]> + AsMut<[u8]>> Packet<T> {
             ParameterValue::U8(inner) => {
                 data[field::VALUE.start] = inner;
             }
+            ParameterValue::I8(inner) => {
+                data[field::VALUE.start] = inner as _;
+            }
             ParameterValue::U32(inner) => LittleEndian::write_u32(&mut data[field::VALUE], inner),
             ParameterValue::I32(inner) => LittleEndian::write_i32(&mut data[field::VALUE], inner),
+            ParameterValue::U64(inner) => LittleEndian::write_u64(&mut data[field::VALUE], inner),
+            ParameterValue::I64(inner) => LittleEndian::write_i64(&mut data[field::VALUE], inner),
             ParameterValue::F32(inner) => LittleEndian::write_f32(&mut data[field::VALUE], inner),
         }
     }
@@ -142,6 +150,7 @@ impl<T: AsRef<[u8]>> AsRef<[u8]> for Packet<T> {
 mod tests {
     use super::*;
     use approx::*;
+    use pretty_assertions::assert_eq;
 
     static NONE_PARAM_BYTES: [u8; 17] = [
         0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0A, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -163,19 +172,34 @@ mod tests {
         0x00, 0x03, 0xBA,
     ];
 
+    static I8_PARAM_BYTES: [u8; 18] = [
+        0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0A, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x04, 0x0A,
+    ];
+
     static U32_PARAM_BYTES: [u8; 21] = [
         0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0A, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x04, 0x00, 0xFF, 0x00, 0xFF,
+        0x00, 0x05, 0x00, 0xFF, 0x00, 0xFF,
     ];
 
     static I32_PARAM_BYTES: [u8; 21] = [
         0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0A, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x05, 0x2E, 0xFB, 0xFF, 0xFF,
+        0x00, 0x06, 0x2E, 0xFB, 0xFF, 0xFF,
+    ];
+
+    static U64_PARAM_BYTES: [u8; 25] = [
+        0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0A, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x07, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0x00, 0x00, 0x00,
+    ];
+
+    static I64_PARAM_BYTES: [u8; 25] = [
+        0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0A, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x08, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0x00, 0x00, 0x00,
     ];
 
     static F32_PARAM_BYTES: [u8; 21] = [
         0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0A, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x06, 0xB6, 0xF3, 0x9D, 0xBF,
+        0x00, 0x09, 0xB6, 0xF3, 0x9D, 0xBF,
     ];
 
     #[test]
@@ -269,6 +293,27 @@ mod tests {
     }
 
     #[test]
+    fn construct_i8() {
+        let mut bytes = [0xFF; 18];
+        let mut f = Packet::new_unchecked(&mut bytes);
+        assert_eq!(f.check_len(), Ok(()));
+        f.set_local_time_ms(255);
+        f.set_id(0x0A_u32.into());
+        f.set_flags(0_u32.into());
+        f.set_value(ParameterValue::I8(0x0A));
+        assert_eq!(&f.into_inner()[..], &I8_PARAM_BYTES[..]);
+    }
+
+    #[test]
+    fn deconstruct_i8() {
+        let f = Packet::new_checked(&I8_PARAM_BYTES[..]).unwrap();
+        assert_eq!(f.local_time_ms(), 255);
+        assert_eq!(f.id(), 0x0A_u32.into());
+        assert_eq!(f.flags(), 0_u32.into());
+        assert_eq!(f.value(), ParameterValue::I8(0x0A));
+    }
+
+    #[test]
     fn construct_u32() {
         let mut bytes = [0xFF; 21];
         let mut f = Packet::new_unchecked(&mut bytes);
@@ -308,6 +353,48 @@ mod tests {
         assert_eq!(f.id(), 0x0A_u32.into());
         assert_eq!(f.flags(), 0_u32.into());
         assert_eq!(f.value(), ParameterValue::I32(-1234));
+    }
+
+    #[test]
+    fn construct_u64() {
+        let mut bytes = [0xFF; 25];
+        let mut f = Packet::new_unchecked(&mut bytes);
+        assert_eq!(f.check_len(), Ok(()));
+        f.set_local_time_ms(255);
+        f.set_id(0x0A_u32.into());
+        f.set_flags(0_u32.into());
+        f.set_value(ParameterValue::U64(0xFF_00_FF_00));
+        assert_eq!(&f.into_inner()[..], &U64_PARAM_BYTES[..]);
+    }
+
+    #[test]
+    fn deconstruct_u64() {
+        let f = Packet::new_checked(&U64_PARAM_BYTES[..]).unwrap();
+        assert_eq!(f.local_time_ms(), 255);
+        assert_eq!(f.id(), 0x0A_u32.into());
+        assert_eq!(f.flags(), 0_u32.into());
+        assert_eq!(f.value(), ParameterValue::U64(0xFF_00_FF_00));
+    }
+
+    #[test]
+    fn construct_i64() {
+        let mut bytes = [0xFF; 25];
+        let mut f = Packet::new_unchecked(&mut bytes);
+        assert_eq!(f.check_len(), Ok(()));
+        f.set_local_time_ms(255);
+        f.set_id(0x0A_u32.into());
+        f.set_flags(0_u32.into());
+        f.set_value(ParameterValue::I64(0xFF_00_FF_00));
+        assert_eq!(&f.into_inner()[..], &I64_PARAM_BYTES[..]);
+    }
+
+    #[test]
+    fn deconstruct_i64() {
+        let f = Packet::new_checked(&I64_PARAM_BYTES[..]).unwrap();
+        assert_eq!(f.local_time_ms(), 255);
+        assert_eq!(f.id(), 0x0A_u32.into());
+        assert_eq!(f.flags(), 0_u32.into());
+        assert_eq!(f.value(), ParameterValue::I64(0xFF_00_FF_00));
     }
 
     #[test]

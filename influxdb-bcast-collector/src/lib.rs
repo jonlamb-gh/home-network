@@ -36,24 +36,35 @@ pub fn start_listening(address: SocketAddr, client: String, db: String) -> io::R
                     for p in resp.parameters() {
                         let param_name = param_name(p.id())
                             .map_or(format!("Unkown({})", p.id()), |s| String::from(s));
+
                         let mut point = Point::new(&param_name);
-                        point.timestamp = Some(p.local_time_ms() as i64);
+
+                        // local_time_ms is another field?
+                        //point.timestamp = Some(p.local_time_ms() as i64);
+
                         let val = match p.value() {
+                            // Use desc string for None/Notif?
                             ParameterValue::None => Value::String(String::from("None")),
                             ParameterValue::Notification => {
                                 Value::String(String::from("Notification"))
                             }
                             ParameterValue::Bool(v) => Value::Boolean(v),
                             ParameterValue::U8(v) => Value::Integer(v as i64),
+                            ParameterValue::I8(v) => Value::Integer(v as i64),
                             ParameterValue::U32(v) => Value::Integer(v as i64),
                             ParameterValue::I32(v) => Value::Integer(v as i64),
+                            ParameterValue::U64(v) => Value::Integer(v as i64),
+                            ParameterValue::I64(v) => Value::Integer(v as i64),
                             ParameterValue::F32(v) => Value::Float(v.into()),
                         };
+
                         point.add_field("value", val);
                         point.add_tag("node_id", Value::String(node_name.clone()));
+
                         info!("Logging {:?}", point);
                         client
-                            .write_point(point, Some(Precision::Milliseconds), None)
+                            //.write_point(point, Some(Precision::Milliseconds), None)
+                            .write_point(point, Some(Precision::Seconds), None)
                             .unwrap();
                     }
                 }

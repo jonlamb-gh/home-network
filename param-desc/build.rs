@@ -227,6 +227,10 @@ impl ParamDesc {
                 "ParameterValue::U8({})",
                 u8::from_str(self.value.as_ref().unwrap()).unwrap()
             )),
+            ParameterValueTypeId::I8 => String::from(format!(
+                "ParameterValue::I8({})",
+                i8::from_str(self.value.as_ref().unwrap()).unwrap()
+            )),
             ParameterValueTypeId::U32 => String::from(format!(
                 "ParameterValue::U32({})",
                 u32::from_str(self.value.as_ref().unwrap()).unwrap()
@@ -234,6 +238,14 @@ impl ParamDesc {
             ParameterValueTypeId::I32 => String::from(format!(
                 "ParameterValue::I32({})",
                 i32::from_str(self.value.as_ref().unwrap()).unwrap()
+            )),
+            ParameterValueTypeId::U64 => String::from(format!(
+                "ParameterValue::U64({})",
+                u64::from_str(self.value.as_ref().unwrap()).unwrap()
+            )),
+            ParameterValueTypeId::I64 => String::from(format!(
+                "ParameterValue::I64({})",
+                i64::from_str(self.value.as_ref().unwrap()).unwrap()
             )),
             ParameterValueTypeId::F32 => String::from(format!(
                 "ParameterValue::F32({}_f32)",

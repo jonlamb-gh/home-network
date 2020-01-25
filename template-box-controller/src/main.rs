@@ -318,8 +318,6 @@ fn main() -> ! {
                             if params.set(p.id(), p.value(), false).is_ok() {
                                 resp.push(*params.get(p.id()).unwrap()).unwrap();
 
-                                // TODO - make this pattern better
-                                // as_bool()/etc on value?
                                 match p.id() {
                                     param_id::LED_STATE => match p.value().as_bool() {
                                         true => led_red.set_high().unwrap(),
@@ -367,7 +365,7 @@ fn main() -> ! {
             push_event((param_id::UPTIME, ParameterValue::U32(inner.wrapping_add(1))).into()).ok();
 
             let inner = params.get_value(param_id::TEMPERATURE).unwrap().as_f32();
-            push_event((param_id::TEMPERATURE, ParameterValue::F32(inner + 0.1)).into()).ok();
+            push_event((param_id::TEMPERATURE, ParameterValue::F32(inner + 0.13)).into()).ok();
         }
     }
 }

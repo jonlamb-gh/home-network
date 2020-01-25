@@ -88,14 +88,16 @@ fn main() {
             value_type,
             value,
         } => {
-            println!("type {:?}", value_type);
             let value = match value_type {
                 ParameterValueTypeId::None => ParameterValue::None,
                 ParameterValueTypeId::Notification => ParameterValue::Notification,
                 ParameterValueTypeId::Bool => ParameterValue::Bool(bool::from_str(&value).unwrap()),
                 ParameterValueTypeId::U8 => ParameterValue::U8(u8::from_str(&value).unwrap()),
+                ParameterValueTypeId::I8 => ParameterValue::I8(i8::from_str(&value).unwrap()),
                 ParameterValueTypeId::U32 => ParameterValue::U32(u32::from_str(&value).unwrap()),
                 ParameterValueTypeId::I32 => ParameterValue::I32(i32::from_str(&value).unwrap()),
+                ParameterValueTypeId::U64 => ParameterValue::U64(u64::from_str(&value).unwrap()),
+                ParameterValueTypeId::I64 => ParameterValue::I64(i64::from_str(&value).unwrap()),
                 ParameterValueTypeId::F32 => ParameterValue::F32(f32::from_str(&value).unwrap()),
             };
             getset_cli::set(address, id.into(), value).unwrap()
