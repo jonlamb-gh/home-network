@@ -318,6 +318,8 @@ fn main() -> ! {
                             if params.set(p.id(), p.value(), false).is_ok() {
                                 resp.push(*params.get(p.id()).unwrap()).unwrap();
 
+                                // TODO - if bcast set, trigger it on state change
+                                // to bcast immediately?
                                 match p.id() {
                                     param_id::LED_STATE => match p.value().as_bool() {
                                         true => led_red.set_high().unwrap(),

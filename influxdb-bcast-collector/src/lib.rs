@@ -32,7 +32,6 @@ pub fn start_listening(address: SocketAddr, client: String, db: String) -> io::R
                 let node_name =
                     node_name(node_id).map_or(format!("Unkown({})", node_id), |s| String::from(s));
                 if let Ok(resp) = Response::parse(&frame) {
-                    println!("{}", resp);
                     for p in resp.parameters() {
                         let param_name = param_name(p.id())
                             .map_or(format!("Unkown({})", p.id()), |s| String::from(s));
