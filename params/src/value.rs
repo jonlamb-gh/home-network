@@ -88,6 +88,54 @@ impl Value {
     }
 }
 
+impl From<bool> for Value {
+    fn from(v: bool) -> Self {
+        Value::Bool(v)
+    }
+}
+
+impl From<u8> for Value {
+    fn from(v: u8) -> Self {
+        Value::U8(v)
+    }
+}
+
+impl From<i8> for Value {
+    fn from(v: i8) -> Self {
+        Value::I8(v)
+    }
+}
+
+impl From<u32> for Value {
+    fn from(v: u32) -> Self {
+        Value::U32(v)
+    }
+}
+
+impl From<i32> for Value {
+    fn from(v: i32) -> Self {
+        Value::I32(v)
+    }
+}
+
+impl From<u64> for Value {
+    fn from(v: u64) -> Self {
+        Value::U64(v)
+    }
+}
+
+impl From<i64> for Value {
+    fn from(v: i64) -> Self {
+        Value::I64(v)
+    }
+}
+
+impl From<f32> for Value {
+    fn from(v: f32) -> Self {
+        Value::F32(v)
+    }
+}
+
 impl fmt::Display for Value {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {

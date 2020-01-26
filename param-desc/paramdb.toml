@@ -3,6 +3,12 @@
 # UDP bcast port 9876
 # TCP port 9877
 
+# flags:
+# ro : externally read-only
+# bcast : 
+# const : internally and externally read-only
+# bcast_on_change
+
 [[node]]
 id = 1
 name = "template_node1"
@@ -20,6 +26,13 @@ ignore = true
 
 [[parameter]]
 id = 100
+name = "bcast_interval"
+desc = "Broadcast interval, seconds"
+value_type = "u32"
+value = "5"
+
+[[parameter]]
+id = 101
 name = "uptime"
 desc = "System uptime, seconds"
 ro = true
@@ -32,7 +45,7 @@ id = 200
 name = "eth_link_down_count"
 desc = "Ethernet link-down counter"
 ro = true
-bcast = true
+bcast = false
 value_type = "u32"
 value = "0"
 
@@ -52,3 +65,4 @@ desc = "Red LED state"
 value_type = "bool"
 value = "true"
 bcast = true
+bcast_on_change = true

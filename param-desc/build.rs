@@ -175,6 +175,7 @@ struct ParamDesc {
     value: Option<String>,
     ro: Option<bool>,
     bcast: Option<bool>,
+    bcast_on_change: Option<bool>,
     constant: Option<bool>,
 }
 
@@ -255,13 +256,19 @@ impl ParamDesc {
 
         let ro = self.ro.unwrap_or(false);
         let bcast = self.bcast.unwrap_or(false);
+        let bcast_on_change = self.bcast_on_change.unwrap_or(false);
         let constant = self.constant.unwrap_or(false);
 
         let flags = String::from(format!(
-            "ParameterFlags::new_from_flags({} | {} | {})",
+            "ParameterFlags::new_from_flags({} | {} | {} | {})",
             if ro { "RO" } else { "0" },
             if bcast { "BCAST" } else { "0" },
             if constant { "CONST" } else { "0" },
+            if bcast_on_change {
+                "BCAST_ON_CHANGE"
+            } else {
+                "0"
+            },
         ));
 
         format!(

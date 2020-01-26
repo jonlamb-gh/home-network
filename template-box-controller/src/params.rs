@@ -93,14 +93,6 @@ impl Params {
             })
     }
 
-    // TODO
-    //
-    // add local_time_ms updating
-    //
-    // async/queue setter fn's
-    // heapless::mpmc::Q (static is safe in interrupt context)
-    // static Event Q in main, deq. and call update/process_event?
-    // wrapper methods to push_event() can be used anywhere
     pub fn process_event(&mut self, event: Event) -> Result<(), Error> {
         // This path used by the application to update, it can update read-only (but not
         // const)

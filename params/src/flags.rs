@@ -7,6 +7,7 @@ assert_eq_size!(u32, Flags);
 pub const RO: u32 = 1 << 0;
 pub const BCAST: u32 = 1 << 1;
 pub const CONST: u32 = 1 << 2;
+pub const BCAST_ON_CHANGE: u32 = 1 << 3;
 
 bitfield! {
     #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Default)]
@@ -14,10 +15,12 @@ bitfield! {
     u32;
     /// The parameter is externally read-only
     pub read_only, set_read_only : 0;
-    /// The parameter will be periodically broadcasted
+    /// The parameter will be periodically broadcast
     pub broadcast, set_broadcast: 1;
     /// The parameter is internally read-only/constant
     pub constant, set_constant: 2;
+    /// The parameter will be broadcast when the value is updated
+    pub broadcast_on_change, set_broadcast_on_change: 3;
 }
 
 impl Flags {
@@ -94,5 +97,14 @@ mod tests {
         f.set_read_only(true);
         f.set_broadcast(true);
         assert_eq!(f, ro);
+    }
+
+    #[test]
+    fn broadcast_on_change() {
+        let flags = Flags::new_from_flags(BCAST_ON_CHANGE);
+        let mut f = Flags::default();
+        assert_eq!(f.0, 0);
+        f.set_broadcast_on_change(true);
+        assert_eq!(f, flags);
     }
 }

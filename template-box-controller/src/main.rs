@@ -3,6 +3,7 @@
 #![feature(core_intrinsics)]
 
 use core::cell::{Cell, RefCell};
+use core::cmp;
 use core::ops::DerefMut;
 use cortex_m::interrupt::Mutex;
 use cortex_m_rt::ExceptionFrame;
@@ -18,8 +19,8 @@ use lib::sys_clock;
 use log::{debug, info, warn, LevelFilter};
 use param_desc::{node_id::TEMPLATE_NODE1, param, param_id};
 use params::{
-    GetSetFlags, GetSetFrame, GetSetNodeId, GetSetOp, GetSetPayloadType, Parameter, ParameterValue,
-    RefResponse, Request, Response, PREAMBLE_WORD,
+    GetSetFlags, GetSetFrame, GetSetNodeId, GetSetOp, GetSetPayloadType, Parameter, RefResponse,
+    Request, Response, PREAMBLE_WORD,
 };
 use smoltcp::iface::{EthernetInterfaceBuilder, NeighborCache, Routes};
 use smoltcp::phy::Device;
@@ -41,7 +42,8 @@ const TCP_SERVER_PORT: u16 = 9877;
 
 const NODE_ID: GetSetNodeId = TEMPLATE_NODE1;
 
-const PARAMETERS: [&'static Parameter; 4] = [
+const PARAMETERS: [&'static Parameter; 5] = [
+    &param::BCAST_INTERVAL,
     &param::UPTIME,
     &param::ETH_LINK_DOWN_COUNT,
     &param::LED_STATE,
@@ -55,6 +57,8 @@ static GLOBAL_ETH_PENDING: Mutex<Cell<bool>> = Mutex::new(Cell::new(false));
 static GLOBAL_PARAM_BCAST_TIM2: Mutex<RefCell<Option<Timer<TIM2>>>> =
     Mutex::new(RefCell::new(None));
 static GLOBAL_PARAM_BCAST_PENDING: Mutex<Cell<bool>> = Mutex::new(Cell::new(false));
+static GLOBAL_PARAM_BCAST_COUNTER: Mutex<Cell<u32>> = Mutex::new(Cell::new(1));
+static GLOBAL_PARAM_BCAST_RELOAD: Mutex<Cell<u32>> = Mutex::new(Cell::new(1));
 
 static GLOBAL_ETH_POLL_TIM3: Mutex<RefCell<Option<Timer<TIM3>>>> = Mutex::new(RefCell::new(None));
 
@@ -74,6 +78,9 @@ fn main() -> ! {
     let gpioc = dp.GPIOC.split();
     let gpiod = dp.GPIOD.split();
     let gpiog = dp.GPIOG.split();
+
+    // On-board button on PC13
+    let user_btn = gpioc.pc13.into_pull_down_input();
 
     // LEDs, turn blue on during setup
     let mut led_green = gpiob.pb0.into_push_pull_output();
@@ -110,6 +117,25 @@ fn main() -> ! {
     let mut params = Params::new();
     for p in &PARAMETERS {
         params.add(**p).unwrap();
+    }
+
+    // Handle initial setup from params
+    for p in params.as_ref() {
+        match p.id() {
+            param_id::LED_STATE => match p.value().as_bool() {
+                true => led_red.set_high().unwrap(),
+                false => led_red.set_low().unwrap(),
+            },
+            param_id::BCAST_INTERVAL => {
+                let ival = cmp::max(1, p.value().as_u32());
+                debug!("Bcast interval {} sec", ival);
+                cortex_m::interrupt::free(|cs| {
+                    GLOBAL_PARAM_BCAST_COUNTER.borrow(cs).replace(ival);
+                    GLOBAL_PARAM_BCAST_RELOAD.borrow(cs).replace(ival);
+                });
+            }
+            _ => (),
+        }
     }
 
     debug!("Setup Ethernet");
@@ -219,11 +245,8 @@ fn main() -> ! {
         stm32::NVIC::unmask(interrupt::TIM3);
     };
 
-    // Handle initial setup from params
-    match params.get_value(param_id::LED_STATE).unwrap().as_bool() {
-        true => led_red.set_high().unwrap(),
-        false => led_red.set_low().unwrap(),
-    }
+    // Set up state for the loop
+    let mut btn_was_pressed = user_btn.is_low().unwrap();
 
     // TODO - sometimes UDP broadcast data doesn't get recv'd on my host?
     // have to reset the board
@@ -236,9 +259,14 @@ fn main() -> ! {
     //
     // setup watchdog and parameter to hold last reset condition
     // make them read-only
+    // should also reset from panic
+    //
+    // watchdog used to trip reset when link isn't coming up?
     //
     // make a path for forcing bcast to pending when something changes?
     // then no rate limit exist?
+    //
+    // or have multiple bcast groups, each can have independent bcast interval
     led_blue.set_low().unwrap();
     let mut last_sec = 0;
     loop {
@@ -266,7 +294,7 @@ fn main() -> ! {
             eth.poll(time);
         }
 
-        // TODO - error handling
+        // TODO - error handling move this logic somewhere else
         // Service TCP server
         if let Ok(bytes_recvd) = eth.recv_tcp_frame(&mut eth_frame_buffer[..]) {
             if let Ok(frame) = GetSetFrame::new_checked(&eth_frame_buffer[..bytes_recvd]) {
@@ -318,13 +346,22 @@ fn main() -> ! {
                             if params.set(p.id(), p.value(), false).is_ok() {
                                 resp.push(*params.get(p.id()).unwrap()).unwrap();
 
-                                // TODO - if bcast set, trigger it on state change
-                                // to bcast immediately?
+                                // TODO
+                                // use the bcast_on_change flag
+                                // need to sanitize values, might ignore user's
                                 match p.id() {
                                     param_id::LED_STATE => match p.value().as_bool() {
                                         true => led_red.set_high().unwrap(),
                                         false => led_red.set_low().unwrap(),
                                     },
+                                    param_id::BCAST_INTERVAL => {
+                                        let ival = cmp::max(1, p.value().as_u32());
+                                        debug!("New bcast interval {} sec", ival);
+                                        cortex_m::interrupt::free(|cs| {
+                                            GLOBAL_PARAM_BCAST_COUNTER.borrow(cs).replace(ival);
+                                            GLOBAL_PARAM_BCAST_RELOAD.borrow(cs).replace(ival);
+                                        });
+                                    }
                                     _ => (),
                                 }
                             }
@@ -354,6 +391,23 @@ fn main() -> ! {
             }
         }
 
+        // User button to show bcast-on-change events
+        let is_pressed = user_btn.is_low().unwrap();
+        if !btn_was_pressed && is_pressed {
+            debug!("Button press - toggle LED");
+            if let Some(v) = params.get_value(param_id::LED_STATE) {
+                let state = !v.as_bool();
+                match state {
+                    true => led_red.set_high().unwrap(),
+                    false => led_red.set_low().unwrap(),
+                }
+                push_event((param_id::LED_STATE, state.into()).into()).unwrap();
+            }
+            btn_was_pressed = true;
+        } else if !is_pressed {
+            btn_was_pressed = false;
+        }
+
         // Drain parameter event queue
         pop_event().map(|e| params.process_event(e).unwrap());
 
@@ -364,10 +418,10 @@ fn main() -> ! {
 
             // TODO
             let inner = params.get_value(param_id::UPTIME).unwrap().as_u32();
-            push_event((param_id::UPTIME, ParameterValue::U32(inner.wrapping_add(1))).into()).ok();
+            push_event((param_id::UPTIME, inner.wrapping_add(1).into()).into()).unwrap();
 
             let inner = params.get_value(param_id::TEMPERATURE).unwrap().as_f32();
-            push_event((param_id::TEMPERATURE, ParameterValue::F32(inner + 0.13)).into()).ok();
+            push_event((param_id::TEMPERATURE, (inner + 0.13).into()).into()).unwrap();
         }
     }
 }
@@ -395,7 +449,15 @@ fn TIM2() {
     cortex_m::interrupt::free(|cs| {
         if let Some(ref mut tim) = GLOBAL_PARAM_BCAST_TIM2.borrow(cs).borrow_mut().deref_mut() {
             tim.clear_interrupt(TimerEvent::TimeOut);
-            GLOBAL_PARAM_BCAST_PENDING.borrow(cs).replace(true);
+
+            let cell = GLOBAL_PARAM_BCAST_COUNTER.borrow(cs);
+            let t = cell.get().saturating_sub(1);
+            cell.replace(t);
+            if t == 0 {
+                let reload = GLOBAL_PARAM_BCAST_RELOAD.borrow(cs).get();
+                GLOBAL_PARAM_BCAST_COUNTER.borrow(cs).replace(reload);
+                GLOBAL_PARAM_BCAST_PENDING.borrow(cs).replace(true);
+            }
         }
     });
 }
