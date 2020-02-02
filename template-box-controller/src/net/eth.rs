@@ -64,7 +64,12 @@ impl<'a, 'b, 'c, 'd, 'e, 'f, 'rx, 'tx, 'r> Eth<'a, 'b, 'c, 'd, 'e, 'f, 'rx, 'tx,
         Ok(())
     }
 
-    // TODO - send/recv TCP data fn's
+    pub fn send_tcp(&mut self, data: &[u8]) -> Result<(), Error> {
+        let mut socket = self.sockets.get::<TcpSocket>(self.tcp_handle);
+        let _ = socket.send_slice(data)?;
+        Ok(())
+    }
+
     pub fn recv_tcp_frame(&mut self, data: &mut [u8]) -> Result<usize, Error> {
         let mut socket = self.sockets.get::<TcpSocket>(self.tcp_handle);
         if socket.may_recv() {
@@ -84,12 +89,6 @@ impl<'a, 'b, 'c, 'd, 'e, 'f, 'rx, 'tx, 'r> Eth<'a, 'b, 'c, 'd, 'e, 'f, 'rx, 'tx,
         }
 
         Ok(0)
-    }
-
-    pub fn send_tcp(&mut self, data: &[u8]) -> Result<(), Error> {
-        let mut socket = self.sockets.get::<TcpSocket>(self.tcp_handle);
-        let _ = socket.send_slice(data)?;
-        Ok(())
     }
 
     pub fn poll(&mut self, time: Instant) {

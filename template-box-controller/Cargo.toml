@@ -44,8 +44,7 @@ git = "https://github.com/jonlamb-gh/stm32-eth.git"
 branch = "update-deps"
 
 [dependencies.smoltcp]
-git = "https://github.com/m-labs/smoltcp.git"
-branch = "master"
+version = "0.6.0"
 default-features = false
 features = [
     "ethernet",

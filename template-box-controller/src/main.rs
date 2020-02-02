@@ -8,15 +8,17 @@ use core::ops::DerefMut;
 use cortex_m::interrupt::Mutex;
 use cortex_m_rt::ExceptionFrame;
 use cortex_m_rt::{entry, exception};
+use lib::error::Error;
 use lib::hal::prelude::*;
 use lib::hal::serial::{config::Config, Serial};
 use lib::hal::stm32::{self, interrupt, TIM2, TIM3};
 use lib::hal::timer::{Event as TimerEvent, Timer};
 use lib::logger::Logger;
 use lib::net::eth::{Eth, MTU, NEIGHBOR_CACHE_SIZE, SOCKET_BUFFER_SIZE};
+use lib::net::getset_protocol::GetSetProtocol;
 use lib::params::{pop_event, push_event, Params};
 use lib::sys_clock;
-use log::{debug, info, warn, LevelFilter};
+use log::{debug, info, LevelFilter};
 use param_desc::{node_id::TEMPLATE_NODE1, param, param_id};
 use params::{
     GetSetFlags, GetSetFrame, GetSetNodeId, GetSetOp, GetSetPayloadType, Parameter, RefResponse,
@@ -294,98 +296,104 @@ fn main() -> ! {
             eth.poll(time);
         }
 
-        // TODO - error handling move this logic somewhere else
-        // Service TCP server
+        // Service TCP get/set protocol
         if let Ok(bytes_recvd) = eth.recv_tcp_frame(&mut eth_frame_buffer[..]) {
-            if let Ok(frame) = GetSetFrame::new_checked(&eth_frame_buffer[..bytes_recvd]) {
-                cortex_m::interrupt::free(|cs| GLOBAL_ETH_PENDING.borrow(cs).replace(true));
-                debug!("Rx {}", frame);
-                match frame.op() {
-                    GetSetOp::ListAll => {
-                        let mut frame = GetSetFrame::new_unchecked(&mut eth_frame_buffer[..]);
-                        let params = params.as_ref();
-                        if params.len() != 0 {
-                            let ref_resp = RefResponse::new(
-                                NODE_ID,
-                                GetSetFlags::default(),
-                                GetSetOp::ListAll,
-                                params,
-                            );
-                            ref_resp.emit(&mut frame).unwrap();
-                            debug!("Tx {}", frame);
-                            let size = ref_resp.wire_size();
-                            eth.send_tcp(&frame.as_ref()[..size]).unwrap();
-                        }
-                    }
-                    GetSetOp::Get
-                        if frame.payload_type() == GetSetPayloadType::ParameterIdListPacket =>
-                    {
-                        let req = Request::parse(&frame).unwrap();
-                        let mut resp =
-                            Response::new(NODE_ID, GetSetFlags::default(), GetSetOp::Get);
-                        for id in req.ids() {
-                            if let Some(p) = params.get(*id) {
-                                resp.push(*p).unwrap();
+            if bytes_recvd != 0 {
+                let mut getset_proto = GetSetProtocol::new(&mut eth_frame_buffer[..]).unwrap();
+                let result = getset_proto.process_buffer(bytes_recvd, |op, buffer| {
+                    cortex_m::interrupt::free(|cs| GLOBAL_ETH_PENDING.borrow(cs).replace(true));
+                    match op {
+                        GetSetOp::ListAll => {
+                            let mut frame = GetSetFrame::new_unchecked(buffer);
+                            let params = params.as_ref();
+                            if params.len() != 0 {
+                                let ref_resp = RefResponse::new(
+                                    NODE_ID,
+                                    GetSetFlags::default(),
+                                    GetSetOp::ListAll,
+                                    params,
+                                );
+                                ref_resp.emit(&mut frame)?;
+                                debug!("Tx {}", frame);
+                                let size = ref_resp.wire_size();
+                                eth.send_tcp(&frame.as_ref()[..size])?;
                             }
                         }
-
-                        let mut frame = GetSetFrame::new_unchecked(&mut eth_frame_buffer[..]);
-                        resp.emit(&mut frame).unwrap();
-                        debug!("Tx {}", frame);
-                        let size = resp.wire_size();
-                        eth.send_tcp(&frame.as_ref()[..size]).unwrap();
-                    }
-                    GetSetOp::Set
-                        if frame.payload_type() == GetSetPayloadType::ParameterListPacket =>
-                    {
-                        let req = Request::parse(&frame).unwrap();
-                        let mut resp =
-                            Response::new(NODE_ID, GetSetFlags::default(), GetSetOp::Set);
-                        for p in req.parameters() {
-                            // TODO - callback notification in here somewhere?
-                            if params.set(p.id(), p.value(), false).is_ok() {
-                                resp.push(*params.get(p.id()).unwrap()).unwrap();
-
-                                // TODO
-                                // use the bcast_on_change flag
-                                // need to sanitize values, might ignore user's
-                                match p.id() {
-                                    param_id::LED_STATE => match p.value().as_bool() {
-                                        true => led_red.set_high().unwrap(),
-                                        false => led_red.set_low().unwrap(),
-                                    },
-                                    param_id::BCAST_INTERVAL => {
-                                        let ival = cmp::max(1, p.value().as_u32());
-                                        debug!("New bcast interval {} sec", ival);
-                                        cortex_m::interrupt::free(|cs| {
-                                            GLOBAL_PARAM_BCAST_COUNTER.borrow(cs).replace(ival);
-                                            GLOBAL_PARAM_BCAST_RELOAD.borrow(cs).replace(ival);
-                                        });
-                                    }
-                                    _ => (),
+                        GetSetOp::Get => {
+                            let frame = GetSetFrame::new_checked(&buffer[..])?;
+                            let req = Request::parse(&frame)?;
+                            let mut resp =
+                                Response::new(NODE_ID, GetSetFlags::default(), GetSetOp::Get);
+                            for id in req.ids() {
+                                if let Some(p) = params.get(*id) {
+                                    resp.push(*p)?;
                                 }
                             }
-                        }
 
-                        let mut frame = GetSetFrame::new_unchecked(&mut eth_frame_buffer[..]);
-                        resp.emit(&mut frame).unwrap();
-                        debug!("Tx {}", frame);
-                        let size = resp.wire_size();
-                        eth.send_tcp(&frame.as_ref()[..size]).unwrap();
+                            let mut frame = GetSetFrame::new_unchecked(buffer);
+                            resp.emit(&mut frame)?;
+                            debug!("Tx {}", frame);
+                            let size = resp.wire_size();
+                            eth.send_tcp(&frame.as_ref()[..size])?;
+                        }
+                        GetSetOp::Set => {
+                            let frame = GetSetFrame::new_checked(&buffer[..])?;
+                            let req = Request::parse(&frame)?;
+                            let mut resp =
+                                Response::new(NODE_ID, GetSetFlags::default(), GetSetOp::Set);
+                            for p in req.parameters() {
+                                // TODO - callback notification in here somewhere?
+                                if params.set(p.id(), p.value(), false).is_ok() {
+                                    resp.push(*params.get(p.id()).unwrap())?;
+
+                                    // TODO
+                                    // use the bcast_on_change flag
+                                    // need to sanitize values, might ignore user's
+                                    match p.id() {
+                                        param_id::LED_STATE => match p.value().as_bool() {
+                                            true => led_red.set_high().unwrap(),
+                                            false => led_red.set_low().unwrap(),
+                                        },
+                                        param_id::BCAST_INTERVAL => {
+                                            let ival = cmp::max(1, p.value().as_u32());
+                                            debug!("New bcast interval {} sec", ival);
+                                            cortex_m::interrupt::free(|cs| {
+                                                GLOBAL_PARAM_BCAST_COUNTER.borrow(cs).replace(ival);
+                                                GLOBAL_PARAM_BCAST_RELOAD.borrow(cs).replace(ival);
+                                            });
+                                        }
+                                        _ => (),
+                                    }
+                                }
+                            }
+
+                            let mut frame = GetSetFrame::new_unchecked(buffer);
+                            resp.emit(&mut frame)?;
+                            debug!("Tx {}", frame);
+                            let size = resp.wire_size();
+                            eth.send_tcp(&frame.as_ref()[..size])?;
+                        }
                     }
-                    op @ _ => {
-                        warn!("Got malformed request {}", frame);
-                        let mut frame = GetSetFrame::new_unchecked(&mut eth_frame_buffer[..]);
-                        frame.set_preamble(PREAMBLE_WORD);
-                        frame.set_node_id(NODE_ID);
-                        frame.set_flags(GetSetFlags::default());
-                        frame.set_version(1);
-                        frame.set_op(op);
-                        frame.set_payload_type(GetSetPayloadType::None);
-                        frame.set_payload_size(0);
-                        debug!("Tx {}", frame);
-                        let size = GetSetFrame::<&[u8]>::header_len();
-                        eth.send_tcp(&frame.as_ref()[..size]).unwrap();
+                    Ok(())
+                });
+
+                match result {
+                    Ok(_) => (),
+                    Err(e) => {
+                        cortex_m::interrupt::free(|cs| GLOBAL_ETH_PENDING.borrow(cs).replace(true));
+                        if let Error::ProtocolMalformed(op) = e {
+                            let mut frame = GetSetFrame::new_unchecked(&mut eth_frame_buffer[..]);
+                            frame.set_preamble(PREAMBLE_WORD);
+                            frame.set_node_id(NODE_ID);
+                            frame.set_flags(GetSetFlags::default());
+                            frame.set_version(1);
+                            frame.set_op(op);
+                            frame.set_payload_type(GetSetPayloadType::None);
+                            frame.set_payload_size(0);
+                            debug!("Tx {}", frame);
+                            let size = GetSetFrame::<&[u8]>::header_len();
+                            eth.send_tcp(&frame.as_ref()[..size]).unwrap();
+                        }
                     }
                 }
             }

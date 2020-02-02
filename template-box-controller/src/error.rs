@@ -2,6 +2,7 @@
 pub enum Error {
     ParamsError(params::Error),
     SmoltcpError(smoltcp::Error),
+    ProtocolMalformed(params::GetSetOp),
     Capacity,
     Duplicate,
     PermissionDenied,
