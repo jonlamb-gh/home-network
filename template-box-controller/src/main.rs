@@ -16,7 +16,7 @@ use lib::hal::timer::{Event as TimerEvent, Timer};
 use lib::logger::Logger;
 use lib::net::eth::{Eth, MTU, NEIGHBOR_CACHE_SIZE, SOCKET_BUFFER_SIZE};
 use lib::net::getset_protocol::GetSetProtocol;
-use lib::params::{pop_event, push_event, Params};
+use lib::params::{dequeue_event, enqueue_event, Params};
 use lib::sys_clock;
 use log::{debug, info, LevelFilter};
 use param_desc::{node_id::TEMPLATE_NODE1, param, param_id};
@@ -296,6 +296,10 @@ fn main() -> ! {
             eth.poll(time);
         }
 
+        // TODO
+        // merge GetSetProtocol and Params
+        // list-all and get can be done internally
+
         // Service TCP get/set protocol
         if let Ok(bytes_recvd) = eth.recv_tcp_frame(&mut eth_frame_buffer[..]) {
             if bytes_recvd != 0 {
@@ -343,11 +347,23 @@ fn main() -> ! {
                                 Response::new(NODE_ID, GetSetFlags::default(), GetSetOp::Set);
                             for p in req.parameters() {
                                 // TODO - callback notification in here somewhere?
-                                if params.set(p.id(), p.value(), false).is_ok() {
-                                    resp.push(*params.get(p.id()).unwrap())?;
+                                let allow_read_only_change = false;
+                                if params
+                                    .set(p.id(), p.value(), allow_read_only_change)
+                                    .is_ok()
+                                {
+                                    // TODO - get_mut() above before set()
+                                    // , change/clamp values if needed
+                                    let p = params.get(p.id()).unwrap();
+                                    //resp.push(*params.get(p.id()).unwrap())?;
+
+                                    if p.flags().broadcast() && p.flags().broadcast_on_change() {
+                                        cortex_m::interrupt::free(|cs| {
+                                            GLOBAL_PARAM_BCAST_PENDING.borrow(cs).replace(true)
+                                        });
+                                    }
 
                                     // TODO
-                                    // use the bcast_on_change flag
                                     // need to sanitize values, might ignore user's
                                     match p.id() {
                                         param_id::LED_STATE => match p.value().as_bool() {
@@ -364,6 +380,8 @@ fn main() -> ! {
                                         }
                                         _ => (),
                                     }
+
+                                    resp.push(*p)?;
                                 }
                             }
 
@@ -409,7 +427,7 @@ fn main() -> ! {
                     true => led_red.set_high().unwrap(),
                     false => led_red.set_low().unwrap(),
                 }
-                push_event((param_id::LED_STATE, state.into()).into()).unwrap();
+                enqueue_event((param_id::LED_STATE, state.into()).into()).unwrap();
             }
             btn_was_pressed = true;
         } else if !is_pressed {
@@ -417,7 +435,7 @@ fn main() -> ! {
         }
 
         // Drain parameter event queue
-        pop_event().map(|e| params.process_event(e).unwrap());
+        dequeue_event().map(|e| params.process_event(e).unwrap());
 
         let sec = time.as_secs();
         if sec != last_sec {
@@ -426,10 +444,10 @@ fn main() -> ! {
 
             // TODO
             let inner = params.get_value(param_id::UPTIME).unwrap().as_u32();
-            push_event((param_id::UPTIME, inner.wrapping_add(1).into()).into()).unwrap();
+            enqueue_event((param_id::UPTIME, inner.wrapping_add(1).into()).into()).unwrap();
 
             let inner = params.get_value(param_id::TEMPERATURE).unwrap().as_f32();
-            push_event((param_id::TEMPERATURE, (inner + 0.13).into()).into()).unwrap();
+            enqueue_event((param_id::TEMPERATURE, (inner + 0.13).into()).into()).unwrap();
         }
     }
 }

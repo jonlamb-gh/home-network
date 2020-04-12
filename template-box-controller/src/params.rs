@@ -32,11 +32,11 @@ impl From<(ParameterId, ParameterValue)> for Event {
     }
 }
 
-pub fn push_event(event: Event) -> Result<(), Error> {
+pub fn enqueue_event(event: Event) -> Result<(), Error> {
     PARAM_EVENT_Q.enqueue(event).map_err(|_| Error::Capacity)
 }
 
-pub fn pop_event() -> Option<Event> {
+pub fn dequeue_event() -> Option<Event> {
     PARAM_EVENT_Q.dequeue()
 }
 
@@ -60,9 +60,6 @@ impl Params {
         }
     }
 
-    // TODO
-    // get_broadcast() -> []
-    // get_read_only()
     pub fn get(&self, id: ParameterId) -> Option<&Parameter> {
         self.params.iter().find(|p| p.id() == id)
     }
@@ -129,11 +126,11 @@ mod tests {
     fn event_queue_capacity() {
         for i in 0..32 {
             let e = Event::new(i.into(), ParameterValue::U32(i));
-            assert_eq!(push_event(e), Ok(()));
+            assert_eq!(enqueue_event(e), Ok(()));
         }
         for i in 0..32 {
             let e = Event::new(i.into(), ParameterValue::U32(i));
-            assert_eq!(pop_event(), Some(e));
+            assert_eq!(dequeue_event(), Some(e));
         }
     }
 
